@@ -4,7 +4,7 @@ project(ntpclock VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network Multimedia)
 if(UNIX AND NOT ANDROID AND NOT APPLE)
     find_package(Qt6 REQUIRED COMPONENTS DBus)
 endif()
@@ -17,6 +17,9 @@ set(NTPCLOCK_SOURCES
         src/NtpWorker.cpp
         src/NtpTime.cpp
         src/NetworkPermission.cpp
+        src/CameraPermission.cpp
+        src/CameraInset.cpp
+        src/CompareView.cpp
         src/PowerEvents.cpp
         src/ScreenAwake.cpp
         src/AppIcon.cpp
@@ -69,6 +72,7 @@ target_link_libraries(ntpclock PRIVATE
         Qt::Gui
         Qt::Widgets
         Qt::Network
+        Qt::Multimedia
 )
 if(TARGET Qt6::DBus)
     target_link_libraries(ntpclock PRIVATE Qt6::DBus)
@@ -96,6 +100,8 @@ if(NOT CMAKE_CROSSCOMPILING)
             tests/ntp_time_test.cpp
             tests/clock_format_test.cpp
             tests/network_permission_test.cpp
+            tests/camera_permission_test.cpp
+            tests/compare_view_test.cpp
             tests/clock_widget_test.cpp
             tests/main_window_test.cpp
             tests/ntp_live_test.cpp
@@ -109,6 +115,7 @@ if(NOT CMAKE_CROSSCOMPILING)
             Qt::Gui
             Qt::Widgets
             Qt::Network
+            Qt::Multimedia
     )
     if(TARGET Qt6::DBus)
         target_link_libraries(ntpclock_tests PRIVATE Qt6::DBus)
@@ -150,7 +157,7 @@ if(WIN32)
 
     file(GLOB _qt_dlls "${QT_TARGET_PREFIX}/bin/*.dll")
     install(FILES ${_qt_dlls} DESTINATION ${CMAKE_INSTALL_BINDIR})
-    foreach(_plugin platforms styles imageformats iconengines)
+    foreach(_plugin platforms styles imageformats iconengines multimedia)
         if(EXISTS "${QT_TARGET_PREFIX}/plugins/${_plugin}")
             install(DIRECTORY "${QT_TARGET_PREFIX}/plugins/${_plugin}"
                     DESTINATION ${CMAKE_INSTALL_BINDIR})

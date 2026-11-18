@@ -23,6 +23,7 @@ LINUX_PACKAGES=(
     g++
     pkg-config
     qt6-base-dev
+    qt6-multimedia-dev
     dpkg-dev
 )
 WINDOWS_PACKAGES=(
@@ -144,23 +145,41 @@ qt_prefix() {
     printf '%s/%s/%s' "$QT_INSTALL_BASE" "$QT_VERSION" "$1"
 }
 
+ensure_qt_module() {
+    local host="$1" target="$2" arch="$3" dirname="$4" cmake_name="$5" aqt_name="$6"
+    local prefix cmake_file
+    prefix="$(qt_prefix "$dirname")"
+    cmake_file="$prefix/lib/cmake/Qt6${cmake_name}/Qt6${cmake_name}Config.cmake"
+    if [ -f "$cmake_file" ]; then
+        ok "Qt ${cmake_name} ($dirname)"
+        return 0
+    fi
+    step "aqt install Qt ${cmake_name} for ${dirname}"
+    run python3 -m aqt install-qt -b "$AQT_MIRROR" -O "$QT_INSTALL_BASE" \
+        "$host" "$target" "$QT_VERSION" "$arch" -m "$aqt_name"
+    if [ "$DRY_RUN" -eq 0 ] && [ ! -f "$cmake_file" ]; then
+        fail "Qt ${cmake_name} did not appear at $cmake_file"
+    fi
+}
+
 ensure_qt_arch() {
     local host="$1" target="$2" arch="$3" dirname="$4"
     local prefix
     prefix="$(qt_prefix "$dirname")"
     if [ -f "$prefix/lib/cmake/Qt6/Qt6Config.cmake" ]; then
         ok "Qt ${QT_VERSION} ${dirname}"
-        return 0
+    else
+        step "aqt install-qt ${host} ${target} ${QT_VERSION} ${arch}"
+        run $SUDO mkdir -p "$QT_INSTALL_BASE"
+        if [ "$DRY_RUN" -eq 0 ]; then
+            $SUDO chown "$USER:$USER" "$QT_INSTALL_BASE" 2>/dev/null || true
+        fi
+        run python3 -m aqt install-qt -b "$AQT_MIRROR" -O "$QT_INSTALL_BASE" "$host" "$target" "$QT_VERSION" "$arch"
+        if [ "$DRY_RUN" -eq 0 ] && [ ! -f "$prefix/lib/cmake/Qt6/Qt6Config.cmake" ]; then
+            fail "Qt ${dirname} did not appear at $prefix"
+        fi
     fi
-    step "aqt install-qt ${host} ${target} ${QT_VERSION} ${arch}"
-    run $SUDO mkdir -p "$QT_INSTALL_BASE"
-    if [ "$DRY_RUN" -eq 0 ]; then
-        $SUDO chown "$USER:$USER" "$QT_INSTALL_BASE" 2>/dev/null || true
-    fi
-    run python3 -m aqt install-qt -b "$AQT_MIRROR" -O "$QT_INSTALL_BASE" "$host" "$target" "$QT_VERSION" "$arch"
-    if [ "$DRY_RUN" -eq 0 ] && [ ! -f "$prefix/lib/cmake/Qt6/Qt6Config.cmake" ]; then
-        fail "Qt ${dirname} did not appear at $prefix"
-    fi
+    ensure_qt_module "$host" "$target" "$arch" "$dirname" "Multimedia" "qtmultimedia"
 }
 
 ensure_android_udev() {

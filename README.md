@@ -29,11 +29,13 @@ The bottom line is amber until a sync has succeeded, and again if a later sync f
 
 Esc leaves full screen. F11 toggles it. Ctrl+Q quits.
 
+A camera inset sits in the bottom-right corner. Tap it, or press Space, to photograph the other screen. The app then shows that picture beside a screenshot of this clock taken at the same moment. **Back** or Esc returns to the live clock. The first use asks for the camera. On Android that is the system permission screen. The picture is not saved and is not sent anywhere.
+
 ## Build
 
 The scripts expect to be run from the repository root on Linux. CMake 4.4 or newer is required. `install-prereqs.sh` installs it when the system copy is older.
 
-Linux uses the distribution Qt (`qt6-base-dev`). Windows and Android use Qt 6.6.3 from [aqtinstall](https://github.com/miurahr/aqtinstall), pinned in `scripts/prereqs.env`.
+Linux uses the distribution Qt (`qt6-base-dev` and `qt6-multimedia-dev`). Windows and Android use Qt 6.6.3 from [aqtinstall](https://github.com/miurahr/aqtinstall), pinned in `scripts/prereqs.env`. The Windows and Android kits also need the Qt Multimedia module.
 
 ### Prerequisites
 
@@ -84,20 +86,20 @@ Outbound UDP port 123 has to be open. A firewall that blocks it leaves the botto
 
 The Android build signs the APK. The password is an environment variable. It is not stored in the repo.
 
+With nothing else set, signing uses the waterfall keystore: `~/.android/waterfall-release.keystore`, alias `waterfall`, and `WATERFALL_KEYSTORE_PASSWORD`. `WATERFALL_KEYSTORE`, `WATERFALL_KEY_ALIAS`, and `WATERFALL_KEY_PASSWORD` are used the same way as in the waterfall build. Set the `NTPCLOCK_*` variables only to sign with a different key.
+
 ```bash
-export NTPCLOCK_KEYSTORE_PASSWORD='…'   # required, at least 6 characters
-export NTPCLOCK_KEY_PASSWORD='…'        # only if the key password differs
-export NTPCLOCK_KEYSTORE="$HOME/.android/ntpclock-release.keystore"  # default
-export NTPCLOCK_KEY_ALIAS=ntpclock     # default
+export WATERFALL_KEYSTORE_PASSWORD='…'   # or NTPCLOCK_KEYSTORE_PASSWORD
+export WATERFALL_KEY_PASSWORD='…'        # only if the key password differs
 ./build-android.sh
 ```
 
-Create the key once, if you do not already have one:
+Create the key once, if you do not already have the waterfall one:
 
 ```bash
 keytool -genkeypair -v \
-  -keystore "$HOME/.android/ntpclock-release.keystore" \
-  -alias ntpclock \
+  -keystore "$HOME/.android/waterfall-release.keystore" \
+  -alias waterfall \
   -keyalg RSA -keysize 2048 -validity 10000
 ```
 

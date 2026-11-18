@@ -32,16 +32,25 @@ fi
 export JAVA_HOME="$ANDROID_JAVA_HOME"
 export PATH="$JAVA_HOME/bin:$PATH"
 
-KEYSTORE="${NTPCLOCK_KEYSTORE:-$HOME/.android/ntpclock-release.keystore}"
-KEY_ALIAS="${NTPCLOCK_KEY_ALIAS:-ntpclock}"
+# ntpclock settings win. Otherwise use the same keystore as waterfall.
+KEYSTORE="${NTPCLOCK_KEYSTORE:-${WATERFALL_KEYSTORE:-$HOME/.android/waterfall-release.keystore}}"
+KEY_ALIAS="${NTPCLOCK_KEY_ALIAS:-${WATERFALL_KEY_ALIAS:-waterfall}}"
+KS_PASS_ENV=NTPCLOCK_KEYSTORE_PASSWORD
+if [ -z "${NTPCLOCK_KEYSTORE_PASSWORD:-}" ]; then
+    KS_PASS_ENV=WATERFALL_KEYSTORE_PASSWORD
+fi
+KEY_PASS_ENV=NTPCLOCK_KEY_PASSWORD
+if [ -z "${NTPCLOCK_KEY_PASSWORD:-}" ]; then
+    KEY_PASS_ENV=WATERFALL_KEY_PASSWORD
+fi
 APKSIGNER="$ANDROID_SDK_ROOT/build-tools/$ANDROID_BUILD_TOOLS/apksigner"
 if [ ! -f "$KEYSTORE" ]; then
     echo "Release keystore not found at $KEYSTORE" >&2
-    echo "Create it with keytool, or set NTPCLOCK_KEYSTORE to its path." >&2
+    echo "Create it with keytool, or set NTPCLOCK_KEYSTORE or WATERFALL_KEYSTORE to its path." >&2
     exit 1
 fi
-if [ -z "${NTPCLOCK_KEYSTORE_PASSWORD:-}" ]; then
-    echo "Set NTPCLOCK_KEYSTORE_PASSWORD to the keystore password." >&2
+if [ -z "${!KS_PASS_ENV:-}" ]; then
+    echo "Set NTPCLOCK_KEYSTORE_PASSWORD or WATERFALL_KEYSTORE_PASSWORD to the keystore password." >&2
     exit 1
 fi
 if [ ! -x "$APKSIGNER" ]; then
@@ -67,13 +76,13 @@ VERSION="$(sed -n 's/^CMAKE_PROJECT_VERSION:STATIC=//p' "$ROOT/build/android-rel
 mkdir -p "$ROOT/dist"
 OUT="$ROOT/dist/ntpclock-${VERSION}-arm64-v8a.apk"
 KEY_PASS_ARGS=()
-if [ -n "${NTPCLOCK_KEY_PASSWORD:-}" ]; then
-    KEY_PASS_ARGS=(--key-pass env:NTPCLOCK_KEY_PASSWORD)
+if [ -n "${!KEY_PASS_ENV:-}" ]; then
+    KEY_PASS_ARGS=(--key-pass "env:${KEY_PASS_ENV}")
 fi
 "$APKSIGNER" sign \
     --ks "$KEYSTORE" \
     --ks-key-alias "$KEY_ALIAS" \
-    --ks-pass env:NTPCLOCK_KEYSTORE_PASSWORD \
+    --ks-pass "env:${KS_PASS_ENV}" \
     "${KEY_PASS_ARGS[@]}" \
     --out "$OUT" \
     "$APK"

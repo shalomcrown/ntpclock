@@ -21,6 +21,8 @@ done
 
 require_line "$ROOT/install-prereqs.sh" "scripts/prereqs.env"
 require_line "$ROOT/install-prereqs.sh" "qt6-base-dev"
+require_line "$ROOT/install-prereqs.sh" "qt6-multimedia-dev"
+require_line "$ROOT/install-prereqs.sh" "qtmultimedia"
 require_line "$ROOT/install-prereqs.sh" "dpkg-dev"
 require_line "$ROOT/install-prereqs.sh" "mingw-w64"
 require_line "$ROOT/install-prereqs.sh" "nsis"
@@ -30,11 +32,6 @@ require_line "$ROOT/install-prereqs.sh" "imagemagick"
 require_line "$ROOT/install-prereqs.sh" "ANDROID_NDK_VERSION"
 require_line "$ROOT/scripts/prereqs.env" "QT_VERSION="
 require_line "$ROOT/scripts/prereqs.env" "ANDROID_NDK_VERSION="
-
-if grep -q 'qt6-multimedia-dev' "$ROOT/install-prereqs.sh"; then
-    echo "ntpclock does not need Qt Multimedia" >&2
-    exit 1
-fi
 
 require_line "$ROOT/build-linux.sh" "scripts/prereqs.env"
 require_line "$ROOT/build-linux.sh" "--preset linux-release"
@@ -50,8 +47,10 @@ require_line "$ROOT/install-apk.sh" "cannot open the USB device"
 require_line "$ROOT/install-prereqs.sh" "51-android.rules"
 require_line "$ROOT/build-android.sh" 'export JAVA_HOME="$ANDROID_JAVA_HOME"'
 require_line "$ROOT/build-android.sh" "apksigner"
-require_line "$ROOT/build-android.sh" "env:NTPCLOCK_KEYSTORE_PASSWORD"
-if grep -E -q '^(export )?NTPCLOCK_(KEYSTORE|KEY)_PASSWORD=' "$ROOT/build-android.sh" "$ROOT/scripts/prereqs.env"; then
+require_line "$ROOT/build-android.sh" "waterfall-release.keystore"
+require_line "$ROOT/build-android.sh" "WATERFALL_KEYSTORE_PASSWORD"
+require_line "$ROOT/build-android.sh" "WATERFALL_KEY_ALIAS"
+if grep -E -q '^(export )?(NTPCLOCK|WATERFALL)_(KEYSTORE|KEY)_PASSWORD=' "$ROOT/build-android.sh" "$ROOT/scripts/prereqs.env"; then
     echo "keystore password must come from the environment, not the repo" >&2
     exit 1
 fi
@@ -67,6 +66,7 @@ require_line "$ROOT/CMakeLists.txt" "if(ANDROID)"
 require_line "$ROOT/CMakeLists.txt" "render-android-icons.cmake"
 require_line "$ROOT/android/AndroidManifest.xml" "android:icon=\"@mipmap/ic_launcher\""
 require_line "$ROOT/android/AndroidManifest.xml" "android.permission.INTERNET"
+require_line "$ROOT/android/AndroidManifest.xml" "android.permission.CAMERA"
 require_line "$ROOT/android/res/mipmap-anydpi-v26/ic_launcher.xml" "adaptive-icon"
 
 if grep -q 'windows-mingw' "$ROOT/build-linux.sh"; then

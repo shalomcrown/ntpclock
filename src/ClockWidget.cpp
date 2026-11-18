@@ -104,6 +104,14 @@ void ClockWidget::setSnapshot(const ClockSnapshot& snapshot) {
     update();
 }
 
+void ClockWidget::setInsetRect(const QRect& rect) {
+    if (m_insetRect == rect) {
+        return;
+    }
+    m_insetRect = rect;
+    update();
+}
+
 void ClockWidget::paintEvent(QPaintEvent* event) {
     Q_UNUSED(event);
     if (m_source) {
@@ -122,7 +130,22 @@ void ClockWidget::paintEvent(QPaintEvent* event) {
 
     const int margin = std::max(8, std::min(width(), height()) / 40);
     const QFont proto = fixedFont();
-    const Bands bands = bandsFor(rect().adjusted(margin, margin, -margin, -margin), proto);
+    Bands bands = bandsFor(rect().adjusted(margin, margin, -margin, -margin), proto);
+    const auto clearOfInset = [this](const QRect& band) {
+        const QRect blocked = m_insetRect.adjusted(0, -12, 0, 0);
+        if (m_insetRect.isEmpty() || band.intersects(blocked) == false) {
+            return band;
+        }
+        const int right = m_insetRect.left() - 8;
+        if (right <= band.left() + 40) {
+            return band;
+        }
+        return QRect(band.left(), band.top(), right - band.left(), band.height());
+    };
+    bands.date = clearOfInset(bands.date);
+    bands.time = clearOfInset(bands.time);
+    bands.millis = clearOfInset(bands.millis);
+    bands.footer = clearOfInset(bands.footer);
     // Fit the font to a fixed sample so the digits do not jump as the time changes.
     const QFont dateFont = fitFont(proto, QStringLiteral("0000-00-00"), bands.date);
     const QFont timeFont = fitFont(proto, QStringLiteral("00:00:00"), bands.time);

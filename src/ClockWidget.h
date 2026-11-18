@@ -14,6 +14,9 @@ public:
 
     void setSource(std::function<ClockSnapshot()> source);
     void setSnapshot(const ClockSnapshot& snapshot);
+    // Rectangle, in this widget's coordinates, covered by the camera inset.
+    // Bands that meet it are narrowed so the digits stay fully visible.
+    void setInsetRect(const QRect& rect);
 
 signals:
     void enableRequested();
@@ -25,4 +28,5 @@ protected:
 private:
     std::function<ClockSnapshot()> m_source;
     ClockSnapshot m_snapshot;
+    QRect m_insetRect;
 };

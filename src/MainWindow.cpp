@@ -1,7 +1,10 @@
 #include "MainWindow.h"
 
 #include "AppIcon.h"
+#include "CameraInset.h"
+#include "CameraPermission.h"
 #include "ClockWidget.h"
+#include "CompareView.h"
 #include "NetworkPermission.h"
 #include "NtpService.h"
 #include "ScreenAwake.h"
@@ -10,11 +13,42 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QResizeEvent>
 #include <QShortcut>
 #include <QShowEvent>
 #include <QStackedWidget>
 #include <QTimer>
 #include <QVBoxLayout>
+
+#include <algorithm>
+
+namespace {
+class ClockPage : public QWidget {
+public:
+    ClockPage(ClockWidget* clock, CameraInset* inset, QWidget* parent = nullptr)
+            : QWidget(parent), m_clock(clock), m_inset(inset) {
+        m_clock->setParent(this);
+        m_inset->setParent(this);
+    }
+
+protected:
+    void resizeEvent(QResizeEvent* event) override {
+        QWidget::resizeEvent(event);
+        m_clock->setGeometry(rect());
+        const int margin = 16;
+        const int insetWidth = std::clamp(width() / 4, 150, 340);
+        const int insetHeight = insetWidth * 3 / 4;
+        m_inset->setGeometry(std::max(margin, width() - insetWidth - margin),
+                             std::max(margin, height() - insetHeight - margin), insetWidth, insetHeight);
+        m_inset->raise();
+        m_clock->setInsetRect(m_inset->geometry());
+    }
+
+private:
+    ClockWidget* m_clock;
+    CameraInset* m_inset;
+};
+}  // namespace
 
 MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
     setWindowTitle(QStringLiteral("NTP Clock"));
@@ -26,11 +60,17 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
     setAutoFillBackground(true);
 
     m_service = new NtpService(this);
-    m_clock = new ClockWidget(this);
+    m_clock = new ClockWidget();
     m_clock->setSource([this] { return m_service->snapshot(); });
     connect(m_clock, &ClockWidget::enableRequested, this, [this] {
         showPermission(NetworkPermission::status() == NetworkPermission::Status::Blocked);
     });
+    m_inset = new CameraInset();
+    m_inset->setPermission(CameraPermission::status());
+    connect(m_inset, &CameraInset::tapped, this, &MainWindow::onCameraTapped);
+    m_clockPage = new ClockPage(m_clock, m_inset, this);
+    m_compare = new CompareView(this);
+    connect(m_compare, &CompareView::backRequested, this, &MainWindow::showClockPage);
 
     m_permission = new QWidget(this);
     m_permission->setStyleSheet(QStringLiteral(
@@ -91,9 +131,66 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
     connect(m_settings, &QPushButton::clicked, this, [] { NetworkPermission::openSystemSettings(); });
     connect(m_retry, &QPushButton::clicked, this, &MainWindow::applyPermission);
 
+    m_cameraPermission = new QWidget(this);
+    m_cameraPermission->setObjectName(QStringLiteral("cameraPermission"));
+    m_cameraPermission->setStyleSheet(QStringLiteral(
+            "QWidget { background: black; color: white; }"
+            "QLabel { background: black; }"
+            "QPushButton { background: white; color: black; font-size: 20px; padding: 12px; }"
+            "QPushButton#denyCamera, QPushButton#retryCamera, QPushButton#settingsCamera {"
+            " background: #222; color: white; }"));
+    auto* cameraTitle = new QLabel(QStringLiteral("Allow the camera"), m_cameraPermission);
+    cameraTitle->setStyleSheet(QStringLiteral("font-size: 32px; font-weight: 600;"));
+    cameraTitle->setWordWrap(true);
+    m_cameraBody = new QLabel(m_cameraPermission);
+    m_cameraBody->setWordWrap(true);
+    m_cameraBody->setStyleSheet(QStringLiteral("font-size: 18px; color: #dddddd;"));
+    m_cameraAllow = new QPushButton(QStringLiteral("Allow"), m_cameraPermission);
+    m_cameraAllow->setObjectName(QStringLiteral("allowCamera"));
+    m_cameraDeny = new QPushButton(QStringLiteral("Don't allow"), m_cameraPermission);
+    m_cameraDeny->setObjectName(QStringLiteral("denyCamera"));
+    m_cameraSettings = new QPushButton(QStringLiteral("Open settings"), m_cameraPermission);
+    m_cameraSettings->setObjectName(QStringLiteral("settingsCamera"));
+    m_cameraRetry = new QPushButton(QStringLiteral("Try again"), m_cameraPermission);
+    m_cameraRetry->setObjectName(QStringLiteral("retryCamera"));
+    for (QPushButton* button : {m_cameraAllow, m_cameraDeny, m_cameraSettings, m_cameraRetry}) {
+        button->setMinimumHeight(56);
+    }
+    auto* cameraColumn = new QWidget(m_cameraPermission);
+    cameraColumn->setMaximumWidth(560);
+    auto* cameraColumnLayout = new QVBoxLayout(cameraColumn);
+    cameraColumnLayout->setSpacing(16);
+    cameraColumnLayout->addWidget(cameraTitle);
+    cameraColumnLayout->addWidget(m_cameraBody);
+    cameraColumnLayout->addWidget(m_cameraAllow);
+    cameraColumnLayout->addWidget(m_cameraDeny);
+    cameraColumnLayout->addWidget(m_cameraSettings);
+    cameraColumnLayout->addWidget(m_cameraRetry);
+    auto* cameraOuter = new QVBoxLayout(m_cameraPermission);
+    cameraOuter->setContentsMargins(32, 32, 32, 32);
+    cameraOuter->addStretch(1);
+    auto* cameraRow = new QHBoxLayout();
+    cameraRow->addStretch(1);
+    cameraRow->addWidget(cameraColumn, 1);
+    cameraRow->addStretch(1);
+    cameraOuter->addLayout(cameraRow);
+    cameraOuter->addStretch(1);
+    connect(m_cameraAllow, &QPushButton::clicked, this, &MainWindow::requestCamera);
+    connect(m_cameraDeny, &QPushButton::clicked, this, [this] {
+        CameraPermission::remember(false);
+        m_inset->setPermission(CameraPermission::status());
+        showClockPage();
+    });
+    connect(m_cameraSettings, &QPushButton::clicked, this, [] { CameraPermission::openSystemSettings(); });
+    connect(m_cameraRetry, &QPushButton::clicked, this, [this] {
+        showCameraPermission(CameraPermission::status() == CameraPermission::Status::Blocked);
+    });
+
     m_stack = new QStackedWidget(this);
-    m_stack->addWidget(m_clock);
+    m_stack->addWidget(m_clockPage);
     m_stack->addWidget(m_permission);
+    m_stack->addWidget(m_cameraPermission);
+    m_stack->addWidget(m_compare);
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_stack);
@@ -110,8 +207,18 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
     });
     auto* leaveFullscreen = new QShortcut(QKeySequence(Qt::Key_Escape), this);
     connect(leaveFullscreen, &QShortcut::activated, this, [this] {
+        if (m_stack->currentWidget() == m_compare || m_stack->currentWidget() == m_cameraPermission) {
+            showClockPage();
+            return;
+        }
         if (isFullScreen()) {
             showMaximized();
+        }
+    });
+    auto* shutter = new QShortcut(QKeySequence(Qt::Key_Space), this);
+    connect(shutter, &QShortcut::activated, this, [this] {
+        if (m_stack->currentWidget() == m_clockPage) {
+            onCameraTapped();
         }
     });
 
@@ -141,14 +248,72 @@ void MainWindow::applyPermission() {
     const NetworkPermission::Status current = NetworkPermission::status();
     if (current == NetworkPermission::Status::Granted) {
         m_service->start();
-        m_stack->setCurrentWidget(m_clock);
+        showClockPage();
         return;
     }
     if (current == NetworkPermission::Status::Denied) {
-        m_stack->setCurrentWidget(m_clock);
+        showClockPage();
         return;
     }
+    m_inset->stop();
     showPermission(current == NetworkPermission::Status::Blocked);
+}
+
+void MainWindow::showClockPage() {
+    m_stack->setCurrentWidget(m_clockPage);
+    m_inset->setPermission(CameraPermission::status());
+    if (CameraPermission::status() == CameraPermission::Status::Granted) {
+        m_inset->start();
+    }
+}
+
+void MainWindow::onCameraTapped() {
+    if (m_stack->currentWidget() != m_clockPage) {
+        return;
+    }
+    const CameraPermission::Status current = CameraPermission::status();
+    if (current == CameraPermission::Status::Granted) {
+        capture();
+        return;
+    }
+    showCameraPermission(current == CameraPermission::Status::Blocked);
+}
+
+void MainWindow::requestCamera() {
+    CameraPermission::request([this](CameraPermission::Status result) {
+        m_inset->setPermission(result);
+        if (result == CameraPermission::Status::Granted) {
+            showClockPage();
+            return;
+        }
+        showCameraPermission(result == CameraPermission::Status::Blocked);
+    });
+}
+
+void MainWindow::capture() {
+    const QImage photo = m_inset->currentFrame();
+    if (photo.isNull()) {
+        m_inset->noteMissingFrame();
+        return;
+    }
+    // Grab the clock itself. The camera inset is a sibling, so it is not in the picture.
+    const QImage clock = m_clock->grab().toImage();
+    m_inset->stop();
+    m_compare->setPair(photo, clock);
+    m_stack->setCurrentWidget(m_compare);
+}
+
+void MainWindow::showCameraPermission(bool blocked) {
+    const bool systemSettings = blocked && CameraPermission::canOpenSystemSettings();
+    m_cameraBody->setText(blocked ? CameraPermission::blockedText() : CameraPermission::askText());
+    m_cameraAllow->setVisible(blocked == false);
+    m_cameraDeny->setVisible(blocked == false);
+    m_cameraSettings->setVisible(systemSettings);
+    m_cameraRetry->setVisible(blocked);
+    m_stack->setCurrentWidget(m_cameraPermission);
+    if (blocked == false) {
+        m_cameraAllow->setFocus();
+    }
 }
 
 void MainWindow::showPermission(bool blocked) {

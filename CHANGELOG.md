@@ -7,5 +7,7 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 ### Added
 
 - Full-screen NTP clock for measuring video latency. The time and milliseconds are drawn as large as the window allows.
+- Android signing uses the waterfall keystore when an ntpclock keystore is not set.
 - Background NTP sync at startup, every five minutes, and after wake from suspend or sleep.
 - Linux DEB, Windows NSIS, and Android APK build scripts.
+- Camera inset that photographs another screen and shows it beside a screenshot of this clock.
