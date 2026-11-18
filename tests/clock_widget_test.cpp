@@ -2,9 +2,50 @@
 #include "NtpTime.h"
 
 #include <QColor>
+#include <QFontDatabase>
 #include <QImage>
+#include <QPainter>
+
+#include <algorithm>
 
 #include <gtest/gtest.h>
+
+namespace {
+QRect ink(const QImage& image) {
+    int left = image.width();
+    int top = image.height();
+    int right = 0;
+    int bottom = 0;
+    bool found = false;
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            if (image.pixelColor(x, y).lightness() <= 200) {
+                continue;
+            }
+            found = true;
+            left = std::min(left, x);
+            top = std::min(top, y);
+            right = std::max(right, x);
+            bottom = std::max(bottom, y);
+        }
+    }
+    if (found == false) {
+        return QRect();
+    }
+    return QRect(left, top, right - left + 1, bottom - top + 1);
+}
+
+QImage paintDigits(const QString& text) {
+    QImage image(360, 120, QImage::Format_RGB32);
+    image.fill(Qt::black);
+    QPainter painter(&image);
+    painter.setPen(Qt::white);
+    QFont font = QFontDatabase::systemFont(QFontDatabase::GeneralFont);
+    font.setPixelSize(72);
+    drawFixedDigits(painter, image.rect().adjusted(8, 8, -8, -8), font, text);
+    return image;
+}
+}  // namespace
 
 TEST(ClockWidget, PaintsLightDigitsOnBlack) {
     ClockWidget widget;
@@ -59,4 +100,17 @@ TEST(ClockWidget, KeepsDigitsClearOfTheCameraCorner) {
         }
     }
     EXPECT_TRUE(sawLight);
+}
+
+TEST(ClockDigits, NarrowAndWideDigitsStayInTheSameCells) {
+    const QImage narrow = paintDigits(QStringLiteral("111"));
+    const QImage wide = paintDigits(QStringLiteral("888"));
+    const QRect narrowInk = ink(narrow);
+    const QRect wideInk = ink(wide);
+    ASSERT_FALSE(narrowInk.isEmpty());
+    ASSERT_FALSE(wideInk.isEmpty());
+    // "1" is narrower than "8", so the ink sits inside the cell. The line
+    // itself stays put: a centered proportional string would shift by much more.
+    EXPECT_LT(std::abs(narrowInk.left() - wideInk.left()), 16);
+    EXPECT_LT(std::abs(narrowInk.right() - wideInk.right()), 16);
 }

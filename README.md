@@ -6,9 +6,9 @@ The date is on the top line. Hours, minutes, and seconds fill the next line. Mil
 
 The clock shows local time, corrected by the NTP offset. Two devices in the same time zone show the same clock. The screen stays on while the app is open.
 
-It builds for Linux (DEB), Windows (NSIS installer, cross-compiled from Linux), and Android (arm64 APK).
+The app can photograph the other screen and show that picture beside this clock. That comparison is how the delay is read.
 
-A later version may take a picture of another screen and place it beside a screenshot of this clock. That is not in this version.
+It builds for Linux (DEB), Windows (NSIS installer, cross-compiled from Linux), and Android (arm64 APK).
 
 ## Using it
 
@@ -27,9 +27,17 @@ NTP runs on a background thread, separate from the display. It runs at startup, 
 
 The bottom line is amber until a sync has succeeded, and again if a later sync fails. The digits keep using the last good offset. Wait until the bottom line shows a time before using the clock to measure latency.
 
-Esc leaves full screen. F11 toggles it. Ctrl+Q quits.
+Esc leaves full screen. F11 toggles it. Ctrl+Q quits. Esc from the comparison, or from the camera question, returns to the clock instead.
 
-A camera inset sits in the bottom-right corner. Tap it, or press Space, to photograph the other screen. The app then shows that picture beside a screenshot of this clock taken at the same moment. **Back** or Esc returns to the live clock. The first use asks for the camera. On Android that is the system permission screen. The picture is not saved and is not sent anywhere.
+### Photographing another screen
+
+A camera inset sits in the bottom-right corner. The time and milliseconds move aside so the inset does not cover them. Point the inset at the other screen, then tap it or press Space.
+
+The first use asks for the camera. On Android that is the system permission screen. **Don't allow** leaves the clock up. The inset stays tappable, so the question can be asked again.
+
+The comparison puts the photograph on the left and this clock on the right, both from the moment the picture was taken. **Back** or Esc returns to the live clock. The picture is kept only for that comparison. It is not saved and it is not sent anywhere.
+
+The right-hand clock is the time at the shutter. The digits in the photograph were already on the other screen, so this clock can read later. The difference is the other screen's delay plus the delay of this camera.
 
 ## Build
 
@@ -112,3 +120,16 @@ To install onto a phone over USB, turn on USB debugging, accept the computer pro
 ```
 
 With no argument it installs the newest signed APK in `dist/`. You can also pass a path.
+
+To publish that APK to Firebase App Distribution:
+
+```bash
+firebase login          # once per machine
+./upload-firebase.sh    # newest signed APK in dist/
+```
+
+The default Firebase Android app is `1:309763775369:android:f3ca73101d839f988c9f58`. `--app` or `FIREBASE_APP_ID` selects a different one. The APK's package name has to be the package registered for that Firebase app.
+
+With no `--groups` or `--testers`, the build is shared with the testers already on the project. `--groups` takes the group alias, not the display name. A missing alias makes Firebase return 404 after the upload, so the script checks the alias first. `--notes` or `--notes-file` sets the release notes. A CI login can use `FIREBASE_TOKEN` from `firebase login:ci`, or `GOOGLE_APPLICATION_CREDENTIALS` for a service account. The token is not stored in the repo.
+
+`./install-prereqs.sh --mode android` installs the Firebase CLI.

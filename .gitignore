@@ -5,6 +5,8 @@
 /cmake-build-*/
 /.idea/
 /aqtinstall.log
+/firebase-debug.log
+/.firebase/
 /CMakeUserPresets.json
 CMakeLists.txt.user*
 

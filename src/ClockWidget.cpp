@@ -32,8 +32,13 @@ QFont fitFont(const QFont& proto, const QString& text, const QRect& band) {
         font.setPixelSize(1);
         return font;
     }
+    // A font taller than the band, or wider than one character's share of the
+    // band, cannot fit. Portrait leaves a very tall millisecond band, and
+    // probing a font that tall on every frame stalls the clock.
+    const int characters = std::max(1, static_cast<int>(text.size()));
+    const int perCharacter = std::max(1, band.width() / characters);
     int low = 1;
-    int high = band.height();
+    int high = std::min(band.height(), perCharacter * 3);
     int best = 1;
     while (low <= high) {
         const int mid = (low + high) / 2;
@@ -85,6 +90,24 @@ void drawLine(QPainter& painter, const QRect& band, const QFont& font, const QSt
 }
 }  // namespace
 
+void drawFixedDigits(QPainter& painter, const QRect& band, const QFont& font, const QString& text) {
+    painter.setFont(font);
+    if (text.isEmpty() || band.width() < 2 || band.height() < 2) {
+        return;
+    }
+    const QFontMetrics metrics(font);
+    int cell = std::max(1, metrics.horizontalAdvance(QStringLiteral("0")));
+    if (cell * text.size() > band.width()) {
+        cell = std::max(1, band.width() / static_cast<int>(text.size()));
+    }
+    const int row = cell * text.size();
+    int x = band.left() + (band.width() - row) / 2;
+    for (const QChar character : text) {
+        painter.drawText(QRect(x, band.top(), cell, band.height()), Qt::AlignCenter, QString(character));
+        x += cell;
+    }
+}
+
 ClockWidget::ClockWidget(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_OpaquePaintEvent, true);
     setAutoFillBackground(false);
@@ -128,37 +151,47 @@ void ClockWidget::paintEvent(QPaintEvent* event) {
     const qint64 displayUs = NtpTime::systemNowUs() + (trustOffset ? m_snapshot.offsetUs : 0);
     const ClockLines lines = formatClock(displayUs, m_snapshot, QTimeZone::systemTimeZone());
 
-    const int margin = std::max(8, std::min(width(), height()) / 40);
-    const QFont proto = fixedFont();
-    Bands bands = bandsFor(rect().adjusted(margin, margin, -margin, -margin), proto);
-    const auto clearOfInset = [this](const QRect& band) {
-        const QRect blocked = m_insetRect.adjusted(0, -12, 0, 0);
-        if (m_insetRect.isEmpty() || band.intersects(blocked) == false) {
-            return band;
-        }
-        const int right = m_insetRect.left() - 8;
-        if (right <= band.left() + 40) {
-            return band;
-        }
-        return QRect(band.left(), band.top(), right - band.left(), band.height());
-    };
-    bands.date = clearOfInset(bands.date);
-    bands.time = clearOfInset(bands.time);
-    bands.millis = clearOfInset(bands.millis);
-    bands.footer = clearOfInset(bands.footer);
-    // Fit the font to a fixed sample so the digits do not jump as the time changes.
-    const QFont dateFont = fitFont(proto, QStringLiteral("0000-00-00"), bands.date);
-    const QFont timeFont = fitFont(proto, QStringLiteral("00:00:00"), bands.time);
-    const QFont millisFont = fitFont(proto, QStringLiteral("000"), bands.millis);
-    const QFont footerFont = fitFont(proto, lines.footer, bands.footer);
+    const QSize size(width(), height());
+    if (m_layoutReady == false || m_layoutSize != size || m_layoutInset != m_insetRect) {
+        const int margin = std::max(8, std::min(width(), height()) / 40);
+        const QFont proto = fixedFont();
+        Bands bands = bandsFor(rect().adjusted(margin, margin, -margin, -margin), proto);
+        const auto clearOfInset = [this](const QRect& band) {
+            const QRect blocked = m_insetRect.adjusted(0, -12, 0, 0);
+            if (m_insetRect.isEmpty() || band.intersects(blocked) == false) {
+                return band;
+            }
+            const int right = m_insetRect.left() - 8;
+            if (right <= band.left() + 40) {
+                return band;
+            }
+            return QRect(band.left(), band.top(), right - band.left(), band.height());
+        };
+        m_dateBand = clearOfInset(bands.date);
+        m_timeBand = clearOfInset(bands.time);
+        m_millisBand = clearOfInset(bands.millis);
+        m_footerBand = clearOfInset(bands.footer);
+        // Fit the font to a fixed sample so the digits do not jump as the time changes.
+        m_dateFont = fitFont(proto, QStringLiteral("0000-00-00"), m_dateBand);
+        m_timeFont = fitFont(proto, QStringLiteral("00:00:00"), m_timeBand);
+        m_millisFont = fitFont(proto, QStringLiteral("000"), m_millisBand);
+        m_footerFont = fitFont(proto, lines.footer, m_footerBand);
+        m_layoutSize = size;
+        m_layoutInset = m_insetRect;
+        m_layoutFooter = lines.footer;
+        m_layoutReady = true;
+    } else if (m_layoutFooter != lines.footer) {
+        m_footerFont = fitFont(fixedFont(), lines.footer, m_footerBand);
+        m_layoutFooter = lines.footer;
+    }
 
     painter.setPen(QColor(210, 210, 210));
-    drawLine(painter, bands.date, dateFont, lines.date);
+    drawLine(painter, m_dateBand, m_dateFont, lines.date);
     painter.setPen(Qt::white);
-    drawLine(painter, bands.time, timeFont, lines.time);
-    drawLine(painter, bands.millis, millisFont, lines.millis);
+    drawFixedDigits(painter, m_timeBand, m_timeFont, lines.time);
+    drawFixedDigits(painter, m_millisBand, m_millisFont, lines.millis);
     painter.setPen(lines.warning ? QColor(255, 196, 0) : QColor(170, 170, 170));
-    drawLine(painter, bands.footer, footerFont, lines.footer);
+    drawLine(painter, m_footerBand, m_footerFont, lines.footer);
 }
 
 void ClockWidget::mousePressEvent(QMouseEvent* event) {

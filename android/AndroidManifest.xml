@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="org.qtproject.example.ntpclock"
+    package="com.kirayim.ntpclock"
     android:installLocation="auto"
     android:versionCode="1"
     android:versionName="0.1.0">

@@ -101,6 +101,7 @@ if(NOT CMAKE_CROSSCOMPILING)
             tests/clock_format_test.cpp
             tests/network_permission_test.cpp
             tests/camera_permission_test.cpp
+            tests/camera_frame_test.cpp
             tests/compare_view_test.cpp
             tests/clock_widget_test.cpp
             tests/main_window_test.cpp
