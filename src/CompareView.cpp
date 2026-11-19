@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include <QLabel>
 #include <QPainter>
 #include <QPaintEvent>
 #include <QPushButton>
@@ -17,20 +18,40 @@ CompareView::CompareView(QWidget* parent) : QWidget(parent) {
     m_back->setMinimumHeight(56);
     m_back->setStyleSheet(QStringLiteral("QPushButton { background: white; color: black; font-size: 20px; }"));
     connect(m_back, &QPushButton::clicked, this, &CompareView::backRequested);
+    m_result = new QLabel(this);
+    m_result->setObjectName(QStringLiteral("compareLatency"));
+    m_result->setAlignment(Qt::AlignCenter);
+    m_result->setWordWrap(true);
+    QFont font = m_result->font();
+    font.setPixelSize(28);
+    font.setBold(true);
+    m_result->setFont(font);
+    m_result->setStyleSheet(QStringLiteral("QLabel { color: white; background: black; }"));
+    m_result->hide();
 }
 
 //================================================================================
-void CompareView::setPair(const QImage& otherScreen, const QImage& clock) {
+void CompareView::setPair(const QImage& otherScreen, const QImage& clock, const QString& latency) {
     m_other = otherScreen;
     m_clock = clock;
+    m_result->setText(latency);
+    m_result->setVisible(latency.isEmpty() == false);
+    placeChildren();
     update();
 }
 
 //================================================================================
 void CompareView::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
-    const int width = std::min(220, this->width() - 32);
-    m_back->setGeometry((this->width() - width) / 2, height() - 72, width, 56);
+    placeChildren();
+}
+
+//================================================================================
+void CompareView::placeChildren() {
+    const int resultHeight = m_result->isVisible() ? 88 : 0;
+    m_result->setGeometry(16, 8, std::max(0, width() - 32), resultHeight);
+    const int buttonWidth = std::min(220, width() - 32);
+    m_back->setGeometry((width() - buttonWidth) / 2, height() - 72, buttonWidth, 56);
 }
 
 //================================================================================
@@ -44,7 +65,8 @@ void CompareView::paintEvent(QPaintEvent* event) {
     Q_UNUSED(event);
     QPainter painter(this);
     painter.fillRect(rect(), Qt::black);
-    const QRect area = rect().adjusted(0, 0, 0, -80);
+    const int top = m_result->isVisible() ? m_result->geometry().bottom() + 8 : 0;
+    const QRect area = rect().adjusted(0, top, 0, -80);
     const QRect left(area.left(), area.top(), area.width() / 2, area.height());
     const QRect right(left.right() + 1, area.top(), area.width() - left.width(), area.height());
     drawPane(painter, left, m_other, QStringLiteral("Other screen"));

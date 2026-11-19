@@ -61,6 +61,27 @@ void applyAndroidKeepScreen(bool keep) {
         if (content.isValid()) {
             content.callMethod<void>("setKeepScreenOn", "(Z)V", on);
         }
+        if (keep) {
+            // The phone can refresh at 120 Hz. Leaving the request at the
+            // default lets the clock settle near 30 Hz while a tablet stays smooth.
+            QJniObject attrs = window.callObjectMethod("getAttributes", "()Landroid/view/WindowManager$LayoutParams;");
+            QJniEnvironment fields;
+            if (attrs.isValid()) {
+                attrs.setField("preferredRefreshRate", 120.0f);
+                fields.checkAndClearExceptions();
+                attrs.setField("preferredMinDisplayRefreshRate", 60.0f);
+                fields.checkAndClearExceptions();
+                attrs.setField("preferredMaxDisplayRefreshRate", 120.0f);
+                fields.checkAndClearExceptions();
+                window.callMethod<void>("setAttributes", "(Landroid/view/WindowManager$LayoutParams;)V", attrs.object());
+            }
+            if (decor.isValid()) {
+                decor.callMethod<void>("setRequestedFrameRate", "(F)V", 120.0f);
+            }
+            if (content.isValid()) {
+                content.callMethod<void>("setRequestedFrameRate", "(F)V", 120.0f);
+            }
+        }
         QJniEnvironment env;
         env.checkAndClearExceptions();
     });

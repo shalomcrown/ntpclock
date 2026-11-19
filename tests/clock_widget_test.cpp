@@ -1,5 +1,6 @@
 #include "ClockWidget.h"
 #include "NtpTime.h"
+#include "TimingBlock.h"
 
 #include <QColor>
 #include <QCoreApplication>
@@ -130,6 +131,34 @@ TEST(ClockWidget, KeepsDigitsClearOfTheCameraCorner) {
         }
     }
     EXPECT_TRUE(sawLight);
+}
+
+//================================================================================
+TEST(ClockWidget, TimingBlockReadsBackAndClearsTheCamera) {
+    ClockWidget wide;
+    wide.resize(960, 540);
+    wide.setInsetRect(QRect(760, 360, 180, 140));
+    ClockSnapshot snapshot;
+    snapshot.networkAllowed = true;
+    snapshot.synced = true;
+    snapshot.lastNtpUs = NtpTime::systemNowUs();
+    wide.setSnapshot(snapshot);
+    wide.show();
+    const QImage wideImage = wide.grab().toImage();
+    const std::optional<TimingHit> wideHit = findTimingBlock(wideImage);
+    ASSERT_TRUE(wideHit.has_value());
+    EXPECT_EQ(wideHit->value, wide.timingValue());
+    EXPECT_FALSE(wideHit->bounds.intersects(QRect(760, 360, 180, 140)));
+
+    ClockWidget tall;
+    tall.resize(420, 900);
+    tall.setSnapshot(snapshot);
+    tall.show();
+    const QImage tallImage = tall.grab().toImage();
+    const std::optional<TimingHit> tallHit = findTimingBlock(tallImage);
+    ASSERT_TRUE(tallHit.has_value());
+    EXPECT_EQ(tallHit->value, tall.timingValue());
+    EXPECT_GT(tallHit->bounds.top(), tallImage.height() / 3);
 }
 
 //================================================================================

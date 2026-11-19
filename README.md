@@ -39,6 +39,8 @@ The comparison puts the photograph on the left and this clock on the right, both
 
 The right-hand clock is the time at the shutter. The digits in the photograph were already on the other screen, so this clock can read later. The difference is the other screen's delay plus the delay of this camera.
 
+A block of squares sits with the milliseconds. It is a Gray code for the millisecond inside a four-second window, so a blurred photo is off by at most one millisecond. The comparison reads that block and shows how far behind the other screen is. If the block cannot be read, the pictures stay up and the line says so.
+
 ## Build
 
 The scripts expect to be run from the repository root on Linux. CMake 4.4 or newer is required. `install-prereqs.sh` installs it when the system copy is older.

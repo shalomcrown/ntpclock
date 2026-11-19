@@ -1,8 +1,10 @@
 #pragma once
 
 #include <QImage>
+#include <QString>
 #include <QWidget>
 
+class QLabel;
 class QPushButton;
 
 //================================================================================
@@ -15,7 +17,7 @@ public:
     explicit CompareView(QWidget* parent = nullptr);
 
 //================================================================================
-    void setPair(const QImage& otherScreen, const QImage& clock);
+    void setPair(const QImage& otherScreen, const QImage& clock, const QString& latency = QString());
 
 signals:
 //================================================================================
@@ -32,8 +34,11 @@ protected:
 private:
 //================================================================================
     void drawPane(QPainter& painter, const QRect& pane, const QImage& image, const QString& caption) const;
+//================================================================================
+    void placeChildren();
 
     QImage m_other;
     QImage m_clock;
     QPushButton* m_back = nullptr;
+    QLabel* m_result = nullptr;
 };

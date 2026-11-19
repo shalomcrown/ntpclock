@@ -3,6 +3,7 @@
 #include "ClockFormat.h"
 
 #include <QFont>
+#include <QImage>
 #include <QRect>
 #include <QWidget>
 
@@ -31,6 +32,9 @@ public:
     // Rectangle, in this widget's coordinates, covered by the camera inset.
     // Bands that meet it are narrowed so the digits stay fully visible.
     void setInsetRect(const QRect& rect);
+//================================================================================
+    // Value painted into the timing block on the last frame, or -1.
+    int timingValue() const;
 
 signals:
 //================================================================================
@@ -41,6 +45,8 @@ protected:
     void paintEvent(QPaintEvent* event) override;
 //================================================================================
     void mousePressEvent(QMouseEvent* event) override;
+//================================================================================
+    void drawMillis(QPainter& painter, const QString& text);
 
 private:
     std::function<ClockSnapshot()> m_source;
@@ -58,7 +64,16 @@ private:
     QRect m_dateBand;
     QRect m_timeBand;
     QRect m_millisBand;
+    QRect m_millisDigitBand;
+    QRect m_timingBlock;
     QRect m_footerBand;
+    int m_timingValue = -1;
+    qint64 m_shownSecond = -1;
+    int m_digitCell = 0;
+    QImage m_digitSprite[10];
+    QFont m_spriteFont;
+    int m_spriteCell = 0;
+    int m_spriteHeight = 0;
     QFont m_versionFont;
     QFont m_dateFont;
     QFont m_timeFont;

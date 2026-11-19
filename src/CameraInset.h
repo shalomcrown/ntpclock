@@ -3,6 +3,7 @@
 #include "CameraPermission.h"
 
 #include <QImage>
+#include <QVideoFrame>
 #include <QWidget>
 
 class QCamera;
@@ -59,6 +60,12 @@ private:
     void updateFacingSwitch();
 //================================================================================
     void rememberFrame(const QImage& image, bool frameMirrored);
+//================================================================================
+    void enqueueFrame(const QVideoFrame& frame);
+//================================================================================
+    void convertAway(const QVideoFrame& frame);
+//================================================================================
+    void finishConversion(const QImage& image, bool frameMirrored);
 
     CameraPermission::Status m_permission = CameraPermission::Status::Undetermined;
     QString m_note;
@@ -67,6 +74,10 @@ private:
     bool m_mirrored = false;
     bool m_front = false;
     bool m_running = false;
+    bool m_converting = false;
+    bool m_hasPending = false;
+    QVideoFrame m_pending;
+    qint64 m_previewShownAt = 0;
     QWidget* m_facingSwitch = nullptr;
     QCamera* m_camera = nullptr;
     QMediaCaptureSession* m_session = nullptr;

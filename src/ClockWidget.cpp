@@ -1,6 +1,7 @@
 #include "ClockWidget.h"
 
 #include "NtpTime.h"
+#include "TimingBlock.h"
 
 #include <algorithm>
 
@@ -95,8 +96,11 @@ Bands bandsFor(const QRect& area, const QFont& proto) {
 
 //================================================================================
 void drawLine(QPainter& painter, const QRect& band, const QFont& font, const QString& text) {
+    painter.save();
+    painter.setClipRect(band);
     painter.setFont(font);
     painter.drawText(band, Qt::AlignCenter, text);
+    painter.restore();
 }
 }  // namespace
 
@@ -106,6 +110,8 @@ void drawFixedDigits(QPainter& painter, const QRect& band, const QFont& font, co
     if (text.isEmpty() || band.width() < 2 || band.height() < 2) {
         return;
     }
+    painter.save();
+    painter.setClipRect(band);
     const QFontMetrics metrics(font);
     int cell = std::max(1, metrics.horizontalAdvance(QStringLiteral("0")));
     if (cell * text.size() > band.width()) {
@@ -117,6 +123,7 @@ void drawFixedDigits(QPainter& painter, const QRect& band, const QFont& font, co
         painter.drawText(QRect(x, band.top(), cell, band.height()), Qt::AlignCenter, QString(character));
         x += cell;
     }
+    painter.restore();
 }
 
 //================================================================================
@@ -125,7 +132,25 @@ ClockWidget::ClockWidget(QWidget* parent) : QWidget(parent) {
     setAutoFillBackground(false);
     auto* timer = new QTimer(this);
     timer->setTimerType(Qt::PreciseTimer);
-    connect(timer, &QTimer::timeout, this, qOverload<>(&QWidget::update));
+    connect(timer, &QTimer::timeout, this, [this] {
+        if (m_layoutReady == false) {
+            update();
+            return;
+        }
+        qint64 displayUs = NtpTime::systemNowUs();
+        if (m_snapshot.networkAllowed && m_snapshot.synced) {
+            displayUs += m_snapshot.offsetUs;
+        }
+        const qint64 second = displayUs / 1000000LL;
+        // The hours, date, and footer change once a second. The milliseconds
+        // and the timing block change on every tick, and they are the only
+        // part worth repainting that often.
+        if (second != m_shownSecond) {
+            update();
+            return;
+        }
+        update(m_millisBand);
+    });
     timer->start(8);
 }
 
@@ -142,6 +167,11 @@ void ClockWidget::setSnapshot(const ClockSnapshot& snapshot) {
 }
 
 //================================================================================
+int ClockWidget::timingValue() const {
+    return m_timingValue;
+}
+
+//================================================================================
 void ClockWidget::setInsetRect(const QRect& rect) {
     if (m_insetRect == rect) {
         return;
@@ -152,12 +182,11 @@ void ClockWidget::setInsetRect(const QRect& rect) {
 
 //================================================================================
 void ClockWidget::paintEvent(QPaintEvent* event) {
-    Q_UNUSED(event);
     if (m_source) {
         m_snapshot = m_source();
     }
     QPainter painter(this);
-    painter.fillRect(rect(), Qt::black);
+    painter.fillRect(event->rect(), Qt::black);
     if (width() < 20 || height() < 20) {
         return;
     }
@@ -165,6 +194,7 @@ void ClockWidget::paintEvent(QPaintEvent* event) {
 
     const bool trustOffset = m_snapshot.networkAllowed && m_snapshot.synced;
     const qint64 displayUs = NtpTime::systemNowUs() + (trustOffset ? m_snapshot.offsetUs : 0);
+    m_timingValue = timingValueFromUs(displayUs);
     const ClockLines lines = formatClock(displayUs, m_snapshot, QTimeZone::systemTimeZone());
 
     const QSize size(width(), height());
@@ -195,6 +225,23 @@ void ClockWidget::paintEvent(QPaintEvent* event) {
         m_dateFont = fitFont(proto, QStringLiteral("0000-00-00"), m_dateBand);
         m_timeFont = fitFont(proto, QStringLiteral("00:00:00"), m_timeBand);
         m_millisFont = fitFont(proto, QStringLiteral("000"), m_millisBand);
+        const QFontMetrics millisMetrics(m_millisFont);
+        int digitCell = millisMetrics.horizontalAdvance(QStringLiteral("0"));
+        if (digitCell * 3 > m_millisBand.width()) {
+            digitCell = std::max(1, m_millisBand.width() / 3);
+        }
+        const TimingPlacement timing = placeTimingBlock(m_millisBand, digitCell * 3,
+                                                       std::min(millisMetrics.height(), m_millisBand.height()), m_insetRect);
+        m_millisDigitBand = timing.digits.isEmpty() ? m_millisBand : timing.digits;
+        m_timingBlock = timing.block;
+        if (m_millisDigitBand.width() < digitCell * 3) {
+            m_millisFont = fitFont(proto, QStringLiteral("000"), m_millisDigitBand);
+        }
+        const QFontMetrics fitted(m_millisFont);
+        m_digitCell = fitted.horizontalAdvance(QStringLiteral("0"));
+        if (m_digitCell * 3 > m_millisDigitBand.width()) {
+            m_digitCell = std::max(1, m_millisDigitBand.width() / 3);
+        }
         m_footerFont = fitFont(proto, lines.footer, m_footerBand);
         m_layoutSize = size;
         m_layoutInset = m_insetRect;
@@ -205,15 +252,69 @@ void ClockWidget::paintEvent(QPaintEvent* event) {
         m_layoutFooter = lines.footer;
     }
 
-    painter.setPen(QColor(200, 200, 200));
-    drawLine(painter, m_versionBand, m_versionFont, QCoreApplication::applicationVersion());
-    painter.setPen(QColor(210, 210, 210));
-    drawLine(painter, m_dateBand, m_dateFont, lines.date);
-    painter.setPen(Qt::white);
-    drawFixedDigits(painter, m_timeBand, m_timeFont, lines.time);
-    drawFixedDigits(painter, m_millisBand, m_millisFont, lines.millis);
-    painter.setPen(lines.warning ? QColor(255, 196, 0) : QColor(170, 170, 170));
-    drawLine(painter, m_footerBand, m_footerFont, lines.footer);
+    m_shownSecond = displayUs / 1000000LL;
+    const QRect exposed = event->rect();
+    auto want = [&](const QRect& band) { return band.isEmpty() == false && exposed.intersects(band); };
+    if (want(m_versionBand)) {
+        painter.setPen(QColor(200, 200, 200));
+        drawLine(painter, m_versionBand, m_versionFont, QCoreApplication::applicationVersion());
+    }
+    if (want(m_dateBand)) {
+        painter.setPen(QColor(210, 210, 210));
+        drawLine(painter, m_dateBand, m_dateFont, lines.date);
+    }
+    if (want(m_timeBand)) {
+        painter.setPen(Qt::white);
+        drawFixedDigits(painter, m_timeBand, m_timeFont, lines.time);
+    }
+    if (want(m_millisBand)) {
+        painter.setPen(Qt::white);
+        drawMillis(painter, lines.millis);
+        paintTimingBlock(painter, m_timingBlock, m_timingValue);
+    }
+    if (want(m_footerBand)) {
+        painter.setPen(lines.warning ? QColor(255, 196, 0) : QColor(170, 170, 170));
+        drawLine(painter, m_footerBand, m_footerFont, lines.footer);
+    }
+}
+
+//================================================================================
+void ClockWidget::drawMillis(QPainter& painter, const QString& text) {
+    const int height = m_millisDigitBand.height();
+    if (m_digitCell < 1 || height < 1) {
+        return;
+    }
+    if (m_spriteFont != m_millisFont || m_spriteCell != m_digitCell || m_spriteHeight != height || m_digitSprite[0].isNull()) {
+        m_spriteFont = m_millisFont;
+        m_spriteCell = m_digitCell;
+        m_spriteHeight = height;
+        for (int digit = 0; digit < 10; ++digit) {
+            QImage sprite(m_digitCell, height, QImage::Format_ARGB32_Premultiplied);
+            sprite.fill(Qt::black);
+            QPainter glyph(&sprite);
+            glyph.setRenderHint(QPainter::TextAntialiasing, true);
+            glyph.setPen(Qt::white);
+            glyph.setFont(m_millisFont);
+            glyph.drawText(sprite.rect(), Qt::AlignCenter, QString::number(digit));
+            m_digitSprite[digit] = sprite;
+        }
+    }
+    painter.save();
+    painter.setClipRect(m_millisDigitBand);
+    int cell = m_digitCell;
+    if (cell * static_cast<int>(text.size()) > m_millisDigitBand.width()) {
+        cell = std::max(1, m_millisDigitBand.width() / std::max(1, static_cast<int>(text.size())));
+    }
+    const int row = cell * static_cast<int>(text.size());
+    int x = m_millisDigitBand.left() + (m_millisDigitBand.width() - row) / 2;
+    for (const QChar character : text) {
+        const int digit = character.digitValue();
+        if (digit >= 0 && digit <= 9) {
+            painter.drawImage(QRect(x, m_millisDigitBand.top(), cell, m_millisDigitBand.height()), m_digitSprite[digit]);
+        }
+        x += cell;
+    }
+    painter.restore();
 }
 
 //================================================================================

@@ -2,12 +2,16 @@
 
 #include <QCamera>
 #include <QCameraDevice>
+#include <QDateTime>
 #include <QMediaCaptureSession>
 #include <QMediaDevices>
+#include <QMetaObject>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPaintEvent>
+#include <QPointer>
 #include <QResizeEvent>
+#include <QThreadPool>
 #include <QTransform>
 #include <QVideoFrame>
 #include <QVideoSink>
@@ -259,9 +263,66 @@ void CameraInset::rememberFrame(const QImage& image, bool frameMirrored) {
     // A selfie of this screen in a mirror only reads normally when the picture
     // is mirrored. Mirror the front camera once, unless Qt already did.
     m_mirrored = m_front && frameMirrored == false;
-    m_frame = orientCameraImage(previewCopy(m_source), 0, m_mirrored);
     m_note.clear();
-    update();
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (m_frame.isNull() || now - m_previewShownAt >= 50) {
+        m_previewShownAt = now;
+        m_frame = orientCameraImage(previewCopy(m_source), 0, m_mirrored);
+        update();
+    }
+}
+
+//================================================================================
+void CameraInset::enqueueFrame(const QVideoFrame& frame) {
+    if (frame.isValid() == false) {
+        return;
+    }
+    if (m_converting) {
+        m_pending = frame;
+        m_hasPending = true;
+        return;
+    }
+    m_converting = true;
+    convertAway(frame);
+}
+
+//================================================================================
+void CameraInset::convertAway(const QVideoFrame& frame) {
+    // toImage() of a 1920-square camera frame takes long enough to stall the
+    // clock if it runs on the UI thread. The copy keeps the buffer alive until
+    // the worker finishes.
+    const bool frameMirrored = frame.mirrored();
+    const QPointer<CameraInset> alive(this);
+    QThreadPool::globalInstance()->start([alive, frame, frameMirrored] {
+        const QImage image = frame.toImage();
+        if (alive.isNull()) {
+            return;
+        }
+        QMetaObject::invokeMethod(
+                alive.data(),
+                [alive, image, frameMirrored] {
+                    if (alive.isNull()) {
+                        return;
+                    }
+                    alive->finishConversion(image, frameMirrored);
+                },
+                Qt::QueuedConnection);
+    });
+}
+
+//================================================================================
+void CameraInset::finishConversion(const QImage& image, bool frameMirrored) {
+    if (image.isNull() == false) {
+        rememberFrame(image, frameMirrored);
+    }
+    if (m_hasPending) {
+        const QVideoFrame next = m_pending;
+        m_hasPending = false;
+        m_pending = QVideoFrame();
+        convertAway(next);
+        return;
+    }
+    m_converting = false;
 }
 
 //================================================================================
@@ -283,13 +344,7 @@ void CameraInset::ensureCamera() {
     m_session = new QMediaCaptureSession(this);
     m_session->setCamera(m_camera);
     m_session->setVideoSink(m_sink);
-    connect(m_sink, &QVideoSink::videoFrameChanged, this, [this](const QVideoFrame& frame) {
-        const QImage image = frame.toImage();
-        if (image.isNull()) {
-            return;
-        }
-        rememberFrame(image, frame.mirrored());
-    });
+    connect(m_sink, &QVideoSink::videoFrameChanged, this, [this](const QVideoFrame& frame) { enqueueFrame(frame); });
     connect(m_camera, &QCamera::errorOccurred, this, [this](QCamera::Error, const QString& text) {
         m_note = text;
         update();

@@ -25,6 +25,8 @@ add_custom_target(ntpclock_version
 
 set(NTPCLOCK_SOURCES
         src/VisibleArea.cpp
+        src/TimingCode.cpp
+        src/TimingBlock.cpp
         src/MainWindow.cpp
         src/ClockWidget.cpp
         src/ClockFormat.cpp
@@ -123,6 +125,7 @@ if(NOT CMAKE_CROSSCOMPILING)
             tests/main_window_test.cpp
             tests/ntp_live_test.cpp
             tests/version_test.cpp
+            tests/timing_block_test.cpp
             ${NTPCLOCK_SOURCES}
     )
     target_include_directories(ntpclock_tests PRIVATE src "${NTPCLOCK_GENERATED_DIR}")
