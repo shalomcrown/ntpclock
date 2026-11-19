@@ -6,11 +6,13 @@ namespace {
 constexpr qint64 kNtpUnixDeltaSeconds = 2208988800LL;
 constexpr qint64 kMaxDelayUs = 3000000;
 
+//================================================================================
 quint32 read32(const char* data) {
     const auto* bytes = reinterpret_cast<const unsigned char*>(data);
     return (quint32(bytes[0]) << 24) | (quint32(bytes[1]) << 16) | (quint32(bytes[2]) << 8) | quint32(bytes[3]);
 }
 
+//================================================================================
 void write32(char* data, quint32 value) {
     auto* bytes = reinterpret_cast<unsigned char*>(data);
     bytes[0] = static_cast<unsigned char>((value >> 24) & 0xff);
@@ -19,6 +21,7 @@ void write32(char* data, quint32 value) {
     bytes[3] = static_cast<unsigned char>(value & 0xff);
 }
 
+//================================================================================
 void writeTimestamp(char* dest, qint64 unixUs) {
     qint64 seconds = unixUs / 1000000;
     qint64 micros = unixUs % 1000000;
@@ -32,6 +35,7 @@ void writeTimestamp(char* dest, qint64 unixUs) {
     write32(dest + 4, fraction);
 }
 
+//================================================================================
 qint64 readUnixUs(const char* data) {
     const quint32 ntpSeconds = read32(data);
     const quint32 fraction = read32(data + 4);
@@ -40,6 +44,7 @@ qint64 readUnixUs(const char* data) {
     return unixSeconds * 1000000LL + micros;
 }
 
+//================================================================================
 NtpMeasurement failed(const QString& error) {
     NtpMeasurement result;
     result.error = error;
@@ -47,11 +52,13 @@ NtpMeasurement failed(const QString& error) {
 }
 }  // namespace
 
+//================================================================================
 qint64 NtpTime::systemNowUs() {
     const auto now = std::chrono::system_clock::now().time_since_epoch();
     return std::chrono::duration_cast<std::chrono::microseconds>(now).count();
 }
 
+//================================================================================
 QStringList NtpTime::defaultServers() {
     // Vendor servers first. pool.ntp.org is the public aggregate, queried with them.
     return {
@@ -62,6 +69,7 @@ QStringList NtpTime::defaultServers() {
     };
 }
 
+//================================================================================
 QByteArray NtpTime::requestPacket(qint64 t1Us) {
     QByteArray packet(kPacketBytes, 0);
     packet[0] = 0x23;  // LI = 0, version = 4, mode = client
@@ -69,6 +77,7 @@ QByteArray NtpTime::requestPacket(qint64 t1Us) {
     return packet;
 }
 
+//================================================================================
 NtpMeasurement NtpTime::fromExchange(qint64 t1Us, qint64 t2Us, qint64 t3Us, qint64 t4Us) {
     NtpMeasurement result;
     const qint64 delayUs = (t4Us - t1Us) - (t3Us - t2Us);
@@ -82,6 +91,7 @@ NtpMeasurement NtpTime::fromExchange(qint64 t1Us, qint64 t2Us, qint64 t3Us, qint
     return result;
 }
 
+//================================================================================
 NtpMeasurement NtpTime::decode(const QByteArray& packet, qint64 t1Us, qint64 t4Us) {
     if (packet.size() < kPacketBytes) {
         return failed(QStringLiteral("Short NTP packet"));
@@ -105,6 +115,7 @@ NtpMeasurement NtpTime::decode(const QByteArray& packet, qint64 t1Us, qint64 t4U
     return fromExchange(t1Us, t2Us, t3Us, t4Us);
 }
 
+//================================================================================
 NtpMeasurement NtpTime::choose(const QList<NtpMeasurement>& samples) {
     const NtpMeasurement* best = nullptr;
     for (const NtpMeasurement& sample : samples) {

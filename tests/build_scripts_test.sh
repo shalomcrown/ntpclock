@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+#================================================================================
 require_line() {
     local file="$1" pattern="$2"
     if ! grep -q -- "$pattern" "$file"; then

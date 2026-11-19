@@ -9,7 +9,22 @@ if(UNIX AND NOT ANDROID AND NOT APPLE)
     find_package(Qt6 REQUIRED COMPONENTS DBus)
 endif()
 
+find_package(Git QUIET)
+set(NTPCLOCK_GENERATED_DIR "${CMAKE_BINARY_DIR}/generated")
+set(NTPCLOCK_VERSION_HEADER "${NTPCLOCK_GENERATED_DIR}/ntpclock_version.h")
+add_custom_target(ntpclock_version
+        COMMAND "${CMAKE_COMMAND}"
+                "-DBASE=${PROJECT_VERSION}"
+                "-DSRC=${CMAKE_SOURCE_DIR}"
+                "-DOUT=${NTPCLOCK_VERSION_HEADER}"
+                "-DGIT=${GIT_EXECUTABLE}"
+                -P "${CMAKE_SOURCE_DIR}/scripts/write-version.cmake"
+        BYPRODUCTS "${NTPCLOCK_VERSION_HEADER}"
+        VERBATIM
+)
+
 set(NTPCLOCK_SOURCES
+        src/VisibleArea.cpp
         src/MainWindow.cpp
         src/ClockWidget.cpp
         src/ClockFormat.cpp
@@ -37,7 +52,8 @@ set_target_properties(ntpclock PROPERTIES
 if(WIN32)
     set_target_properties(ntpclock PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
-target_include_directories(ntpclock PRIVATE src)
+target_include_directories(ntpclock PRIVATE src "${NTPCLOCK_GENERATED_DIR}")
+add_dependencies(ntpclock ntpclock_version)
 if(ANDROID)
     find_program(NTPCLOCK_IMAGEMAGICK NAMES convert magick REQUIRED)
     set(NTPCLOCK_ANDROID_PACKAGE_DIR "${CMAKE_BINARY_DIR}/android-package")
@@ -106,9 +122,11 @@ if(NOT CMAKE_CROSSCOMPILING)
             tests/clock_widget_test.cpp
             tests/main_window_test.cpp
             tests/ntp_live_test.cpp
+            tests/version_test.cpp
             ${NTPCLOCK_SOURCES}
     )
-    target_include_directories(ntpclock_tests PRIVATE src)
+    target_include_directories(ntpclock_tests PRIVATE src "${NTPCLOCK_GENERATED_DIR}")
+    add_dependencies(ntpclock_tests ntpclock_version)
     set_target_properties(ntpclock_tests PROPERTIES AUTOMOC ON)
     target_link_libraries(ntpclock_tests PRIVATE
             GTest::gtest

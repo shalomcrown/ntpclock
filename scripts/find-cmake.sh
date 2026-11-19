@@ -6,6 +6,7 @@ if [ -z "${CMAKE_MIN_VERSION:-}" ]; then
     exit 1
 fi
 
+#================================================================================
 cmake_version_ok() {
     local bin="$1" ver
     [ -n "$bin" ] && [ -x "$bin" ] || return 1

@@ -6,12 +6,14 @@
 #include <gtest/gtest.h>
 
 namespace {
+//================================================================================
 qint64 at(int hour, int minute, int second, int millisecond) {
     const QDateTime when(QDate(2026, 11, 18), QTime(hour, minute, second, millisecond), QTimeZone::utc());
     return when.toMSecsSinceEpoch() * 1000;
 }
 }  // namespace
 
+//================================================================================
 TEST(ClockFormat, SplitsTimeAndMilliseconds) {
     ClockSnapshot snapshot;
     snapshot.networkAllowed = true;
@@ -28,6 +30,7 @@ TEST(ClockFormat, SplitsTimeAndMilliseconds) {
     EXPECT_FALSE(lines.warning);
 }
 
+//================================================================================
 TEST(ClockFormat, RoundsUpIntoTheNextSecond) {
     ClockSnapshot snapshot;
     snapshot.networkAllowed = true;
@@ -39,6 +42,7 @@ TEST(ClockFormat, RoundsUpIntoTheNextSecond) {
     EXPECT_EQ(lines.millis, QStringLiteral("000"));
 }
 
+//================================================================================
 TEST(ClockFormat, WaitingAndDeniedFooters) {
     const qint64 now = at(8, 0, 0, 0);
     ClockSnapshot waiting;
@@ -56,6 +60,7 @@ TEST(ClockFormat, WaitingAndDeniedFooters) {
     EXPECT_EQ(formatClock(now, failed, QTimeZone::utc()).footer, QStringLiteral("No reply from time servers"));
 }
 
+//================================================================================
 TEST(ClockFormat, ShowsAgeSinceTheLastSync) {
     ClockSnapshot snapshot;
     snapshot.networkAllowed = true;

@@ -53,11 +53,17 @@ if [ -t 1 ]; then
 else
     C_RED=''; C_GREEN=''; C_YELLOW=''; C_BLUE=''; C_RESET=''
 fi
+#================================================================================
 info()  { printf '%b[INFO]%b  %s\n' "$C_BLUE"   "$C_RESET" "$1"; }
+#================================================================================
 ok()    { printf '%b[OK]%b    %s\n' "$C_GREEN"  "$C_RESET" "$1"; }
+#================================================================================
 step()  { printf '%b[STEP]%b  %s\n' "$C_YELLOW" "$C_RESET" "$1"; }
+#================================================================================
 fail()  { MISSING_COUNT=$((MISSING_COUNT + 1)); printf '%b[FAIL]%b  %s\n' "$C_RED" "$C_RESET" "$1"; }
+#================================================================================
 die()   { printf '%b[ERROR]%b %s\n' "$C_RED" "$C_RESET" "$1" >&2; exit 1; }
+#================================================================================
 run() {
     if [ "$DRY_RUN" -eq 1 ]; then
         printf '%b[DRY-RUN]%b  %s\n' "$C_YELLOW" "$C_RESET" "$*"
@@ -86,11 +92,13 @@ case "$MODE" in
     *) die "Invalid --mode '$MODE'" ;;
 esac
 
+#================================================================================
 apt_install() {
     step "apt-get install $*"
     run $SUDO apt-get install -y "$@"
 }
 
+#================================================================================
 cmake_version_ok() {
     local bin="$1" ver
     [ -n "$bin" ] && [ -x "$bin" ] || return 1
@@ -99,6 +107,7 @@ cmake_version_ok() {
     [ "$(printf '%s\n%s\n' "$CMAKE_MIN_VERSION" "$ver" | sort -V | head -n 1)" = "$CMAKE_MIN_VERSION" ]
 }
 
+#================================================================================
 ensure_cmake() {
     local candidate
     for candidate in /usr/local/bin/cmake /opt/cmake/bin/cmake "$(command -v cmake 2>/dev/null || true)"; do
@@ -126,6 +135,7 @@ ensure_cmake() {
     ok "cmake ${CMAKE_VERSION}"
 }
 
+#================================================================================
 ensure_aqt() {
     if python3 -m aqt version >/dev/null 2>&1; then
         ok "aqtinstall $(python3 -m aqt version 2>/dev/null | awk 'NR==1 { print $NF }')"
@@ -142,10 +152,12 @@ ensure_aqt() {
     ok "aqtinstall ${AQTINSTALL_VERSION}"
 }
 
+#================================================================================
 qt_prefix() {
     printf '%s/%s/%s' "$QT_INSTALL_BASE" "$QT_VERSION" "$1"
 }
 
+#================================================================================
 ensure_qt_module() {
     local host="$1" target="$2" arch="$3" dirname="$4" cmake_name="$5" aqt_name="$6"
     local prefix cmake_file
@@ -163,6 +175,7 @@ ensure_qt_module() {
     fi
 }
 
+#================================================================================
 ensure_qt_arch() {
     local host="$1" target="$2" arch="$3" dirname="$4"
     local prefix
@@ -183,6 +196,7 @@ ensure_qt_arch() {
     ensure_qt_module "$host" "$target" "$arch" "$dirname" "Multimedia" "qtmultimedia"
 }
 
+#================================================================================
 ensure_android_udev() {
     local rule="/etc/udev/rules.d/51-android.rules"
     if [ -f "$rule" ] && grep -q '18d1' "$rule"; then
@@ -201,6 +215,7 @@ ensure_android_udev() {
     ok "Android udev rule (unplug and replug the phone)"
 }
 
+#================================================================================
 ensure_android_sdk() {
     local sdkmanager="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
     if [ ! -x "$sdkmanager" ]; then
@@ -246,6 +261,7 @@ ensure_android_sdk() {
     ok "Android SDK"
 }
 
+#================================================================================
 ensure_firebase() {
     if command -v firebase >/dev/null 2>&1; then
         ok "firebase $(firebase --version 2>/dev/null | head -n 1)"

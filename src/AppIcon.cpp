@@ -8,6 +8,7 @@
 #include <QWidget>
 
 namespace {
+//================================================================================
 QPixmap drawIcon(int size) {
     QPixmap pixmap(size, size);
     pixmap.fill(Qt::transparent);
@@ -31,6 +32,7 @@ QPixmap drawIcon(int size) {
 }
 }  // namespace
 
+//================================================================================
 QIcon AppIcon::icon() {
     QIcon icon;
     icon.addPixmap(drawIcon(64));
@@ -39,6 +41,7 @@ QIcon AppIcon::icon() {
     return icon;
 }
 
+//================================================================================
 void AppIcon::apply(QWidget* widget) {
     if (widget == nullptr) {
         return;

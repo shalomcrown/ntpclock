@@ -9,6 +9,7 @@
 #endif
 
 namespace {
+//================================================================================
 bool operatingSystemAllowsNetwork() {
 #if defined(Q_OS_ANDROID)
     const QJniObject context = QNativeInterface::QAndroidApplication::context();
@@ -29,6 +30,7 @@ bool operatingSystemAllowsNetwork() {
 }
 }  // namespace
 
+//================================================================================
 NetworkPermission::Status NetworkPermission::status() {
     if (operatingSystemAllowsNetwork() == false) {
         return Status::Blocked;
@@ -40,12 +42,14 @@ NetworkPermission::Status NetworkPermission::status() {
     return settings.value(QStringLiteral("network/allowed")).toBool() ? Status::Granted : Status::Denied;
 }
 
+//================================================================================
 void NetworkPermission::remember(bool allowed) {
     QSettings settings;
     settings.setValue(QStringLiteral("network/allowed"), allowed);
     settings.sync();
 }
 
+//================================================================================
 bool NetworkPermission::canOpenSystemSettings() {
 #if defined(Q_OS_ANDROID)
     return true;
@@ -54,6 +58,7 @@ bool NetworkPermission::canOpenSystemSettings() {
 #endif
 }
 
+//================================================================================
 bool NetworkPermission::openSystemSettings() {
 #if defined(Q_OS_ANDROID)
     QJniObject activity = QNativeInterface::QAndroidApplication::context();
@@ -77,12 +82,14 @@ bool NetworkPermission::openSystemSettings() {
 #endif
 }
 
+//================================================================================
 QString NetworkPermission::askText() {
     return QStringLiteral(
             "NTP Clock asks public time servers for the current time, so the display can be used to measure video "
             "latency. It sends a short time query and reads the reply. Nothing else is sent.");
 }
 
+//================================================================================
 QString NetworkPermission::blockedText() {
     return QStringLiteral(
             "Network access is turned off for NTP Clock. Open the app settings and allow network access, then return "

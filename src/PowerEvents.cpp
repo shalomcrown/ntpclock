@@ -17,6 +17,7 @@
 #include <windows.h>
 #endif
 
+//================================================================================
 PowerEvents::PowerEvents(QObject* parent) : QObject(parent) {
 #if defined(Q_OS_WIN)
     if (qApp != nullptr) {
@@ -40,6 +41,7 @@ PowerEvents::PowerEvents(QObject* parent) : QObject(parent) {
     }
 }
 
+//================================================================================
 PowerEvents::~PowerEvents() {
 #if defined(Q_OS_WIN)
     if (qApp != nullptr) {
@@ -48,6 +50,7 @@ PowerEvents::~PowerEvents() {
 #endif
 }
 
+//================================================================================
 bool PowerEvents::nativeEventFilter(const QByteArray& eventType, void* message, qintptr* result) {
     Q_UNUSED(result);
 #if defined(Q_OS_WIN)
@@ -66,6 +69,7 @@ bool PowerEvents::nativeEventFilter(const QByteArray& eventType, void* message, 
     return false;
 }
 
+//================================================================================
 void PowerEvents::onPrepareForSleep(bool sleeping) {
     // logind passes true when the machine is about to sleep, and false on the way back.
     if (sleeping == false) {

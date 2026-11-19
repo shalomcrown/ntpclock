@@ -20,6 +20,7 @@ namespace {
 constexpr int kTimeoutMs = 1200;
 constexpr quint16 kNtpPort = 123;
 
+//================================================================================
 QList<QHostAddress> lookup(const QString& host, QString& error) {
     QList<QHostAddress> addresses;
     addrinfo hints{};
@@ -46,6 +47,7 @@ QList<QHostAddress> lookup(const QString& host, QString& error) {
     return addresses;
 }
 
+//================================================================================
 QHostAddress preferIpv4(const QList<QHostAddress>& addresses) {
     for (const QHostAddress& address : addresses) {
         if (address.protocol() == QAbstractSocket::IPv4Protocol) {
@@ -55,6 +57,7 @@ QHostAddress preferIpv4(const QList<QHostAddress>& addresses) {
     return addresses.isEmpty() ? QHostAddress() : addresses.first();
 }
 
+//================================================================================
 NtpMeasurement queryServer(const QString& server) {
     NtpMeasurement result;
     result.server = server;
@@ -102,6 +105,7 @@ NtpMeasurement queryServer(const QString& server) {
 }
 }  // namespace
 
+//================================================================================
 void NtpWorker::syncNow() {
     QList<NtpMeasurement> samples;
     const QStringList servers = NtpTime::defaultServers();

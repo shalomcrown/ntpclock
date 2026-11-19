@@ -5,6 +5,7 @@
 
 #include <QMutexLocker>
 
+//================================================================================
 NtpService::NtpService(QObject* parent) : QObject(parent) {
     m_worker = new NtpWorker();
     m_worker->moveToThread(&m_thread);
@@ -16,6 +17,7 @@ NtpService::NtpService(QObject* parent) : QObject(parent) {
     connect(m_power, &PowerEvents::resumed, this, &NtpService::onResume);
 }
 
+//================================================================================
 NtpService::~NtpService() {
     m_periodic.stop();
     disconnect(m_worker, nullptr, this, nullptr);
@@ -29,6 +31,7 @@ NtpService::~NtpService() {
     m_worker = nullptr;
 }
 
+//================================================================================
 void NtpService::start() {
     if (m_thread.isRunning() == false) {
         m_thread.start();
@@ -44,11 +47,13 @@ void NtpService::start() {
     requestSync();
 }
 
+//================================================================================
 ClockSnapshot NtpService::snapshot() const {
     QMutexLocker lock(&m_mutex);
     return m_snapshot;
 }
 
+//================================================================================
 void NtpService::requestSync() {
     if (m_started == false || m_worker == nullptr) {
         return;
@@ -61,10 +66,12 @@ void NtpService::requestSync() {
     QMetaObject::invokeMethod(m_worker, &NtpWorker::syncNow);
 }
 
+//================================================================================
 void NtpService::onResume() {
     requestSync();
 }
 
+//================================================================================
 void NtpService::onSyncFinished(bool ok, qint64 offsetUs, qint64 ntpUs, const QString& server, const QString& error) {
     {
         QMutexLocker lock(&m_mutex);

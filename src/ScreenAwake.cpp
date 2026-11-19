@@ -19,6 +19,7 @@ namespace {
 uint g_cookie = 0;
 #endif
 
+//================================================================================
 void releaseInhibit() {
 #if defined(NTPCLOCK_HAS_DBUS)
     if (g_cookie == 0) {
@@ -31,6 +32,7 @@ void releaseInhibit() {
 #endif
 }
 
+//================================================================================
 void applyAndroidKeepScreen(bool keep) {
 #if defined(Q_OS_ANDROID)
     // Window flags must be changed on the Android UI thread. The Qt thread is not that thread.
@@ -68,6 +70,7 @@ void applyAndroidKeepScreen(bool keep) {
 }
 }  // namespace
 
+//================================================================================
 void ScreenAwake::setKeepAwake(bool keep) {
 #if defined(Q_OS_ANDROID)
     applyAndroidKeepScreen(keep);

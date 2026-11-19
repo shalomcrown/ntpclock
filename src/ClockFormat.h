@@ -4,6 +4,7 @@
 #include <QTimeZone>
 #include <QtGlobal>
 
+//================================================================================
 // What the clock is currently trusting. The widget reads a copy of this.
 struct ClockSnapshot {
     bool networkAllowed = false;
@@ -14,6 +15,7 @@ struct ClockSnapshot {
     QString error;
 };
 
+//================================================================================
 // The four lines painted on screen. Digits are ASCII, independent of locale.
 struct ClockLines {
     QString date;
@@ -23,4 +25,5 @@ struct ClockLines {
     bool warning = true;
 };
 
+//================================================================================
 ClockLines formatClock(qint64 displayUs, const ClockSnapshot& snapshot, const QTimeZone& zone);

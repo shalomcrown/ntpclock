@@ -9,27 +9,43 @@ class NtpService;
 class QLabel;
 class QPushButton;
 class QStackedWidget;
+class QVBoxLayout;
 
+//================================================================================
 class MainWindow : public QWidget {
     Q_OBJECT
 
 public:
+//================================================================================
     explicit MainWindow(QWidget* parent = nullptr);
 
 protected:
+//================================================================================
     void showEvent(QShowEvent* event) override;
+//================================================================================
+    void resizeEvent(QResizeEvent* event) override;
 
 private:
+//================================================================================
+    void fitVisibleArea();
+//================================================================================
     void applyPermission();
+//================================================================================
     void showPermission(bool blocked);
+//================================================================================
     void showCameraPermission(bool blocked);
+//================================================================================
     void onCameraTapped();
+//================================================================================
     void requestCamera();
+//================================================================================
     void capture();
+//================================================================================
     void showClockPage();
 
     NtpService* m_service = nullptr;
     QStackedWidget* m_stack = nullptr;
+    QVBoxLayout* m_layout = nullptr;
     QWidget* m_clockPage = nullptr;
     ClockWidget* m_clock = nullptr;
     CameraInset* m_inset = nullptr;

@@ -2,6 +2,7 @@
 #include "NtpTime.h"
 
 #include <QColor>
+#include <QCoreApplication>
 #include <QFontDatabase>
 #include <QImage>
 #include <QPainter>
@@ -11,6 +12,7 @@
 #include <gtest/gtest.h>
 
 namespace {
+//================================================================================
 QRect ink(const QImage& image) {
     int left = image.width();
     int top = image.height();
@@ -35,6 +37,7 @@ QRect ink(const QImage& image) {
     return QRect(left, top, right - left + 1, bottom - top + 1);
 }
 
+//================================================================================
 QImage paintDigits(const QString& text) {
     QImage image(360, 120, QImage::Format_RGB32);
     image.fill(Qt::black);
@@ -47,6 +50,7 @@ QImage paintDigits(const QString& text) {
 }
 }  // namespace
 
+//================================================================================
 TEST(ClockWidget, PaintsLightDigitsOnBlack) {
     ClockWidget widget;
     widget.resize(800, 600);
@@ -74,6 +78,32 @@ TEST(ClockWidget, PaintsLightDigitsOnBlack) {
     EXPECT_TRUE(sawLight);
 }
 
+//================================================================================
+TEST(ClockWidget, ShowsTheVersionAtTheTop) {
+    QCoreApplication::setApplicationVersion(QStringLiteral("0.1.0.202611190840.5550b95"));
+    ClockWidget widget;
+    widget.resize(800, 600);
+    ClockSnapshot snapshot;
+    snapshot.networkAllowed = true;
+    snapshot.synced = true;
+    snapshot.lastNtpUs = NtpTime::systemNowUs();
+    widget.setSnapshot(snapshot);
+    widget.show();
+
+    const QImage image = widget.grab().toImage();
+    int light = 0;
+    for (int y = 10; y < 32; ++y) {
+        for (int x = 280; x < 520; ++x) {
+            if (image.pixelColor(x, y).lightness() > 140) {
+                ++light;
+            }
+        }
+    }
+    EXPECT_GT(light, 20);
+    EXPECT_EQ(image.pixelColor(1, 1), QColor(Qt::black));
+}
+
+//================================================================================
 TEST(ClockWidget, KeepsDigitsClearOfTheCameraCorner) {
     ClockWidget widget;
     widget.resize(1280, 720);
@@ -102,6 +132,7 @@ TEST(ClockWidget, KeepsDigitsClearOfTheCameraCorner) {
     EXPECT_TRUE(sawLight);
 }
 
+//================================================================================
 TEST(ClockDigits, NarrowAndWideDigitsStayInTheSameCells) {
     const QImage narrow = paintDigits(QStringLiteral("111"));
     const QImage wide = paintDigits(QStringLiteral("888"));

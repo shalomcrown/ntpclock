@@ -4,6 +4,7 @@
 #include <QLocale>
 
 namespace {
+//================================================================================
 qint64 roundUsToMs(qint64 microseconds) {
     if (microseconds >= 0) {
         return (microseconds + 500) / 1000;
@@ -11,6 +12,7 @@ qint64 roundUsToMs(qint64 microseconds) {
     return -((-microseconds + 500) / 1000);
 }
 
+//================================================================================
 QString agePhrase(qint64 ageUs) {
     if (ageUs < 0) {
         ageUs = 0;
@@ -26,6 +28,7 @@ QString agePhrase(qint64 ageUs) {
 }
 }  // namespace
 
+//================================================================================
 ClockLines formatClock(qint64 displayUs, const ClockSnapshot& snapshot, const QTimeZone& zone) {
     const QLocale latin = QLocale::c();
     const QDateTime when = QDateTime::fromMSecsSinceEpoch(roundUsToMs(displayUs), zone);

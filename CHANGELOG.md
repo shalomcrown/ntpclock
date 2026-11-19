@@ -11,3 +11,8 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 - Background NTP sync at startup, every five minutes, and after wake from suspend or sleep.
 - Linux DEB, Windows NSIS, and Android APK build scripts.
 - Camera inset that photographs another screen and shows it beside a screenshot of this clock.
+- Version line at the top of the clock: `<version>.<UTC build time YYYYMMDDHHmm>.<git hash>`.
+
+### Fixed
+
+- Android: the bottom (portrait) or right side (landscape) no longer runs off the screen below the camera cutout.

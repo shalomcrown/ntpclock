@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+//================================================================================
 TEST(NetworkPermission, RemembersTheChoice) {
     QSettings settings;
     settings.clear();

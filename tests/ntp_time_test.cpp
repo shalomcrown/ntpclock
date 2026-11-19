@@ -2,12 +2,14 @@
 
 #include <gtest/gtest.h>
 
+//================================================================================
 TEST(NtpTime, RequestPacketIsAClientQuery) {
     const QByteArray packet = NtpTime::requestPacket(1500000);
     ASSERT_EQ(packet.size(), NtpTime::kPacketBytes);
     EXPECT_EQ(static_cast<unsigned char>(packet[0]), 0x23);
 }
 
+//================================================================================
 TEST(NtpTime, ExchangeOffsetAndDelay) {
     const NtpMeasurement measurement = NtpTime::fromExchange(10000000, 10100000, 10120000, 10150000);
     EXPECT_TRUE(measurement.ok);
@@ -15,11 +17,13 @@ TEST(NtpTime, ExchangeOffsetAndDelay) {
     EXPECT_EQ(measurement.delayUs, 130000);
 }
 
+//================================================================================
 TEST(NtpTime, RejectsANegativeDelay) {
     const NtpMeasurement measurement = NtpTime::fromExchange(1000, 0, 0, 0);
     EXPECT_FALSE(measurement.ok);
 }
 
+//================================================================================
 TEST(NtpTime, DecodesAMatchingReply) {
     const qint64 t1 = 1500000;
     const QByteArray request = NtpTime::requestPacket(t1);
@@ -40,6 +44,7 @@ TEST(NtpTime, DecodesAMatchingReply) {
     EXPECT_FALSE(NtpTime::decode(reply, t1, t1).ok);
 }
 
+//================================================================================
 TEST(NtpTime, RejectsAnUnsynchronizedServer) {
     QByteArray reply(NtpTime::kPacketBytes, 0);
     reply[0] = static_cast<char>(0xE4);
@@ -47,6 +52,7 @@ TEST(NtpTime, RejectsAnUnsynchronizedServer) {
     EXPECT_FALSE(NtpTime::decode(reply, 0, 0).ok);
 }
 
+//================================================================================
 TEST(NtpTime, ChoosesTheLowestDelay) {
     NtpMeasurement slow;
     slow.ok = true;
@@ -67,6 +73,7 @@ TEST(NtpTime, ChoosesTheLowestDelay) {
     EXPECT_EQ(best.offsetUs, 30);
 }
 
+//================================================================================
 TEST(NtpTime, ReportsFailureWhenNobodyReplied) {
     NtpMeasurement failed;
     failed.error = QStringLiteral("down");
@@ -75,6 +82,7 @@ TEST(NtpTime, ReportsFailureWhenNobodyReplied) {
     EXPECT_EQ(best.error, QStringLiteral("No reply from time servers"));
 }
 
+//================================================================================
 TEST(NtpTime, DefaultServersIncludeThePoolAndAVendor) {
     const QStringList servers = NtpTime::defaultServers();
     EXPECT_GE(servers.size(), 2);

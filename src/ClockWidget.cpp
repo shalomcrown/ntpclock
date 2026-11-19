@@ -4,6 +4,7 @@
 
 #include <algorithm>
 
+#include <QCoreApplication>
 #include <QFontDatabase>
 #include <QFontMetrics>
 #include <QMouseEvent>
@@ -12,13 +13,16 @@
 #include <QTimer>
 
 namespace {
+//================================================================================
 struct Bands {
+    QRect version;
     QRect date;
     QRect time;
     QRect millis;
     QRect footer;
 };
 
+//================================================================================
 QFont fixedFont() {
     QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
     font.setStyleHint(QFont::Monospace);
@@ -26,6 +30,7 @@ QFont fixedFont() {
     return font;
 }
 
+//================================================================================
 QFont fitFont(const QFont& proto, const QString& text, const QRect& band) {
     QFont font = proto;
     if (text.isEmpty() || band.width() < 2 || band.height() < 2) {
@@ -55,14 +60,16 @@ QFont fitFont(const QFont& proto, const QString& text, const QRect& band) {
     return font;
 }
 
+//================================================================================
 // The clock line is wide, so its font is limited by the window width. Give it
 // only the height that font needs. The three millisecond digits get the rest,
 // which makes them the largest text on a normal window.
 Bands bandsFor(const QRect& area, const QFont& proto) {
     const int gap = std::max(4, area.height() / 100);
+    const int versionHeight = std::clamp(area.height() / 40, 14, 22);
     const int dateHeight = std::clamp(area.height() * 6 / 100, 18, std::max(18, area.height() / 12));
     const int footerHeight = std::clamp(area.height() * 6 / 100, 18, std::max(18, area.height() / 12));
-    const int rest = std::max(2, area.height() - dateHeight - footerHeight - gap * 3);
+    const int rest = std::max(2, area.height() - versionHeight - dateHeight - footerHeight - gap * 4);
     const int millisFloor = std::max(1, rest * 2 / 5);
     const QFont timeFont = fitFont(proto, QStringLiteral("00:00:00"), QRect(0, 0, area.width(), rest));
     int timeHeight = QFontMetrics(timeFont).height();
@@ -74,6 +81,8 @@ Bands bandsFor(const QRect& area, const QFont& proto) {
 
     Bands bands;
     int y = area.top();
+    bands.version = QRect(area.left(), y, area.width(), versionHeight);
+    y += versionHeight + gap;
     bands.date = QRect(area.left(), y, area.width(), dateHeight);
     y += dateHeight + gap;
     bands.time = QRect(area.left(), y, area.width(), timeHeight);
@@ -84,12 +93,14 @@ Bands bandsFor(const QRect& area, const QFont& proto) {
     return bands;
 }
 
+//================================================================================
 void drawLine(QPainter& painter, const QRect& band, const QFont& font, const QString& text) {
     painter.setFont(font);
     painter.drawText(band, Qt::AlignCenter, text);
 }
 }  // namespace
 
+//================================================================================
 void drawFixedDigits(QPainter& painter, const QRect& band, const QFont& font, const QString& text) {
     painter.setFont(font);
     if (text.isEmpty() || band.width() < 2 || band.height() < 2) {
@@ -108,6 +119,7 @@ void drawFixedDigits(QPainter& painter, const QRect& band, const QFont& font, co
     }
 }
 
+//================================================================================
 ClockWidget::ClockWidget(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_OpaquePaintEvent, true);
     setAutoFillBackground(false);
@@ -117,16 +129,19 @@ ClockWidget::ClockWidget(QWidget* parent) : QWidget(parent) {
     timer->start(8);
 }
 
+//================================================================================
 void ClockWidget::setSource(std::function<ClockSnapshot()> source) {
     m_source = std::move(source);
     update();
 }
 
+//================================================================================
 void ClockWidget::setSnapshot(const ClockSnapshot& snapshot) {
     m_snapshot = snapshot;
     update();
 }
 
+//================================================================================
 void ClockWidget::setInsetRect(const QRect& rect) {
     if (m_insetRect == rect) {
         return;
@@ -135,6 +150,7 @@ void ClockWidget::setInsetRect(const QRect& rect) {
     update();
 }
 
+//================================================================================
 void ClockWidget::paintEvent(QPaintEvent* event) {
     Q_UNUSED(event);
     if (m_source) {
@@ -167,11 +183,15 @@ void ClockWidget::paintEvent(QPaintEvent* event) {
             }
             return QRect(band.left(), band.top(), right - band.left(), band.height());
         };
+        m_versionBand = bands.version;
         m_dateBand = clearOfInset(bands.date);
         m_timeBand = clearOfInset(bands.time);
         m_millisBand = clearOfInset(bands.millis);
         m_footerBand = clearOfInset(bands.footer);
         // Fit the font to a fixed sample so the digits do not jump as the time changes.
+        m_versionFont = proto;
+        m_versionFont.setBold(false);
+        m_versionFont.setPixelSize(std::clamp(m_versionBand.height() - 4, 11, 18));
         m_dateFont = fitFont(proto, QStringLiteral("0000-00-00"), m_dateBand);
         m_timeFont = fitFont(proto, QStringLiteral("00:00:00"), m_timeBand);
         m_millisFont = fitFont(proto, QStringLiteral("000"), m_millisBand);
@@ -185,6 +205,8 @@ void ClockWidget::paintEvent(QPaintEvent* event) {
         m_layoutFooter = lines.footer;
     }
 
+    painter.setPen(QColor(200, 200, 200));
+    drawLine(painter, m_versionBand, m_versionFont, QCoreApplication::applicationVersion());
     painter.setPen(QColor(210, 210, 210));
     drawLine(painter, m_dateBand, m_dateFont, lines.date);
     painter.setPen(Qt::white);
@@ -194,6 +216,7 @@ void ClockWidget::paintEvent(QPaintEvent* event) {
     drawLine(painter, m_footerBand, m_footerFont, lines.footer);
 }
 
+//================================================================================
 void ClockWidget::mousePressEvent(QMouseEvent* event) {
     if (m_snapshot.networkAllowed == false) {
         emit enableRequested();

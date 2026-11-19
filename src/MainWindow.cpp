@@ -8,6 +8,7 @@
 #include "NetworkPermission.h"
 #include "NtpService.h"
 #include "ScreenAwake.h"
+#include "VisibleArea.h"
 
 #include <QGuiApplication>
 #include <QHBoxLayout>
@@ -23,8 +24,10 @@
 #include <algorithm>
 
 namespace {
+//================================================================================
 class ClockPage : public QWidget {
 public:
+//================================================================================
     ClockPage(ClockWidget* clock, CameraInset* inset, QWidget* parent = nullptr)
             : QWidget(parent), m_clock(clock), m_inset(inset) {
         m_clock->setParent(this);
@@ -32,6 +35,7 @@ public:
     }
 
 protected:
+//================================================================================
     void resizeEvent(QResizeEvent* event) override {
         QWidget::resizeEvent(event);
         m_clock->setGeometry(rect());
@@ -50,6 +54,7 @@ private:
 };
 }  // namespace
 
+//================================================================================
 MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
     setWindowTitle(QStringLiteral("NTP Clock"));
     AppIcon::apply(this);
@@ -191,9 +196,16 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
     m_stack->addWidget(m_permission);
     m_stack->addWidget(m_cameraPermission);
     m_stack->addWidget(m_compare);
-    auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(m_stack);
+    m_layout = new QVBoxLayout(this);
+    m_layout->setContentsMargins(0, 0, 0, 0);
+    m_layout->addWidget(m_stack);
+#if defined(Q_OS_ANDROID)
+    // Android does not always tell Qt when the visible window shrinks, for
+    // example after the phone turns while the app is in the background.
+    auto* visibleCheck = new QTimer(this);
+    connect(visibleCheck, &QTimer::timeout, this, &MainWindow::fitVisibleArea);
+    visibleCheck->start(500);
+#endif
 
     auto* quit = new QShortcut(QKeySequence::Quit, this);
     connect(quit, &QShortcut::activated, this, &QWidget::close);
@@ -233,6 +245,7 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
     applyPermission();
 }
 
+//================================================================================
 void MainWindow::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     if (qEnvironmentVariable("QT_QPA_PLATFORM") == QByteArrayLiteral("offscreen")) {
@@ -244,6 +257,21 @@ void MainWindow::showEvent(QShowEvent* event) {
 #endif
 }
 
+//================================================================================
+void MainWindow::resizeEvent(QResizeEvent* event) {
+    QWidget::resizeEvent(event);
+    fitVisibleArea();
+}
+
+//================================================================================
+void MainWindow::fitVisibleArea() {
+    const QMargins margins = VisibleArea::hiddenMargins(size(), VisibleArea::devicePixels(), devicePixelRatioF());
+    if (m_layout->contentsMargins() != margins) {
+        m_layout->setContentsMargins(margins);
+    }
+}
+
+//================================================================================
 void MainWindow::applyPermission() {
     const NetworkPermission::Status current = NetworkPermission::status();
     if (current == NetworkPermission::Status::Granted) {
@@ -259,6 +287,7 @@ void MainWindow::applyPermission() {
     showPermission(current == NetworkPermission::Status::Blocked);
 }
 
+//================================================================================
 void MainWindow::showClockPage() {
     m_stack->setCurrentWidget(m_clockPage);
     m_inset->setPermission(CameraPermission::status());
@@ -267,6 +296,7 @@ void MainWindow::showClockPage() {
     }
 }
 
+//================================================================================
 void MainWindow::onCameraTapped() {
     if (m_stack->currentWidget() != m_clockPage) {
         return;
@@ -279,6 +309,7 @@ void MainWindow::onCameraTapped() {
     showCameraPermission(current == CameraPermission::Status::Blocked);
 }
 
+//================================================================================
 void MainWindow::requestCamera() {
     CameraPermission::request([this](CameraPermission::Status result) {
         m_inset->setPermission(result);
@@ -290,6 +321,7 @@ void MainWindow::requestCamera() {
     });
 }
 
+//================================================================================
 void MainWindow::capture() {
     const QImage photo = m_inset->currentFrame();
     if (photo.isNull()) {
@@ -303,6 +335,7 @@ void MainWindow::capture() {
     m_stack->setCurrentWidget(m_compare);
 }
 
+//================================================================================
 void MainWindow::showCameraPermission(bool blocked) {
     const bool systemSettings = blocked && CameraPermission::canOpenSystemSettings();
     m_cameraBody->setText(blocked ? CameraPermission::blockedText() : CameraPermission::askText());
@@ -316,6 +349,7 @@ void MainWindow::showCameraPermission(bool blocked) {
     }
 }
 
+//================================================================================
 void MainWindow::showPermission(bool blocked) {
     const bool systemSettings = blocked && NetworkPermission::canOpenSystemSettings();
     m_body->setText(blocked ? NetworkPermission::blockedText() : NetworkPermission::askText());

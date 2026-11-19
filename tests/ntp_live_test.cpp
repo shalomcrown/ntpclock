@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+//================================================================================
 TEST(NtpWorker, LiveSync) {
     if (qEnvironmentVariableIsEmpty("NTPCLOCK_LIVE_NTP")) {
         GTEST_SKIP() << "Set NTPCLOCK_LIVE_NTP=1 to query the time servers";
