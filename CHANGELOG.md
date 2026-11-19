@@ -6,6 +6,7 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ### Added
 
+- Android App Bundle beside the APK. Play Console takes the bundle. A phone install over USB still uses the APK.
 - Full-screen NTP clock for measuring video latency. The time and milliseconds are drawn as large as the window allows.
 - Guide page that shows this readme, with the running version on the first line. Open it with Guide on the clock.
 - Android signing uses the waterfall keystore when an ntpclock keystore is not set.
@@ -14,6 +15,10 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 - Camera inset that photographs another screen and shows it beside a screenshot of this clock.
 - Version line at the top of the clock: `<version>.<UTC build time YYYYMMDDHHmm>.<git hash>`.
 - Gray-code timing block beside the milliseconds, and the compare screen reads it to show how far behind the other screen is.
+
+### Changed
+
+- Android builds use Qt 6.11.3 and target Android 16 (API 36). Native libraries are aligned to 16 KB pages. The phone needs Android 9 or newer.
 
 ### Fixed
 

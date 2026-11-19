@@ -10,7 +10,7 @@ The clock shows local time, corrected by the NTP offset. Two devices in the same
 
 The app can photograph the other screen and show that picture beside this clock. That comparison is how the delay is read.
 
-It builds for Linux (DEB), Windows (NSIS installer, cross-compiled from Linux), and Android (arm64 APK).
+It builds for Linux (DEB), Windows (NSIS installer, cross-compiled from Linux), and Android (arm64 APK and App Bundle).
 
 ## Using it
 
@@ -55,7 +55,7 @@ A block of squares sits with the milliseconds. It is a Gray code for the millise
 
 The scripts expect to be run from the repository root on Linux. CMake 4.4 or newer is required. `install-prereqs.sh` installs it when the system copy is older.
 
-Linux uses the distribution Qt (`qt6-base-dev` and `qt6-multimedia-dev`). Windows and Android use Qt 6.6.3 from [aqtinstall](https://github.com/miurahr/aqtinstall), pinned in `scripts/prereqs.env`. The Windows and Android kits also need the Qt Multimedia module.
+Linux uses the distribution Qt (`qt6-base-dev` and `qt6-multimedia-dev`). Windows uses Qt 6.6.3 from [aqtinstall](https://github.com/miurahr/aqtinstall). Android uses Qt 6.11.3, NDK 27.2, and JDK 21, also from aqtinstall. Both kits are pinned in `scripts/prereqs.env`. The Windows kit and the Android kit need the Qt Multimedia module. An Android phone needs Android 9 or newer.
 
 ### Prerequisites
 
@@ -74,7 +74,7 @@ Linux uses the distribution Qt (`qt6-base-dev` and `qt6-multimedia-dev`). Window
 ```bash
 ./build-linux.sh       # dist/ntpclock-<version>-Linux.deb
 ./build-windows.sh     # dist/ntpclock-<version>-win64.exe
-./build-android.sh     # dist/ntpclock-<version>-arm64-v8a.apk
+./build-android.sh     # dist/ntpclock-<version>-arm64-v8a.apk and .aab
 ```
 
 The Linux package installs a desktop entry and icon, so the app shows up in the Ubuntu launcher and sidebar. The Android launcher icon is the same artwork. `install-prereqs.sh --mode android` installs ImageMagick, which the Android build uses to turn that SVG into the launcher sizes.
@@ -104,7 +104,7 @@ Outbound UDP port 123 has to be open. A firewall that blocks it leaves the botto
 
 ### Android signing and install
 
-The Android build signs the APK. The password is an environment variable. It is not stored in the repo.
+The Android build signs the APK and the App Bundle with the same key. The password is an environment variable. It is not stored in the repo. The APK installs over USB. The App Bundle is the file Play Console accepts.
 
 With nothing else set, signing uses the waterfall keystore: `~/.android/waterfall-release.keystore`, alias `waterfall`, and `WATERFALL_KEYSTORE_PASSWORD`. `WATERFALL_KEYSTORE`, `WATERFALL_KEY_ALIAS`, and `WATERFALL_KEY_PASSWORD` are used the same way as in the waterfall build. Set the `NTPCLOCK_*` variables only to sign with a different key.
 
@@ -148,4 +148,4 @@ With no `--groups` or `--testers`, the build is shared with the testers already 
 
 ### Google Play
 
-What Play Console still needs, including the target API level and the 16 KB page-size alignment, is in [docs/play-store.md](https://github.com/shalomcrown/ntpclock/blob/main/docs/play-store.md). A 512 pixel icon is at `docs/play-icon-512.png`.
+The Android package targets Android 16 (API 36) and aligns native libraries to 16 KB pages. What Play Console still needs is in [docs/play-store.md](https://github.com/shalomcrown/ntpclock/blob/main/docs/play-store.md). A 512 pixel icon is at `docs/play-icon-512.png`.

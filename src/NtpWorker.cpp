@@ -2,6 +2,7 @@
 
 #include "NtpTime.h"
 
+#include <QDebug>
 #include <QElapsedTimer>
 #include <QHostAddress>
 #include <QList>

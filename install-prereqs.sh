@@ -42,7 +42,7 @@ ANDROID_PACKAGES=(
     wget
     python3
     python3-pip
-    openjdk-17-jdk
+    openjdk-21-jdk
     imagemagick
     curl
 )
@@ -94,8 +94,18 @@ esac
 
 #================================================================================
 apt_install() {
-    step "apt-get install $*"
-    run $SUDO apt-get install -y "$@"
+    local missing=() pkg
+    for pkg in "$@"; do
+        if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+            missing+=("$pkg")
+        fi
+    done
+    if [ "${#missing[@]}" -eq 0 ]; then
+        ok "apt packages already installed"
+        return 0
+    fi
+    step "apt-get install ${missing[*]}"
+    run $SUDO apt-get install -y "${missing[@]}"
 }
 
 #================================================================================
@@ -154,22 +164,22 @@ ensure_aqt() {
 
 #================================================================================
 qt_prefix() {
-    printf '%s/%s/%s' "$QT_INSTALL_BASE" "$QT_VERSION" "$1"
+    printf '%s/%s/%s' "$QT_INSTALL_BASE" "$1" "$2"
 }
 
 #================================================================================
 ensure_qt_module() {
-    local host="$1" target="$2" arch="$3" dirname="$4" cmake_name="$5" aqt_name="$6"
+    local host="$1" target="$2" version="$3" arch="$4" dirname="$5" cmake_name="$6" aqt_name="$7"
     local prefix cmake_file
-    prefix="$(qt_prefix "$dirname")"
+    prefix="$(qt_prefix "$version" "$dirname")"
     cmake_file="$prefix/lib/cmake/Qt6${cmake_name}/Qt6${cmake_name}Config.cmake"
     if [ -f "$cmake_file" ]; then
-        ok "Qt ${cmake_name} ($dirname)"
+        ok "Qt ${cmake_name} ($version $dirname)"
         return 0
     fi
-    step "aqt install Qt ${cmake_name} for ${dirname}"
+    step "aqt install Qt ${cmake_name} for ${version} ${dirname}"
     run python3 -m aqt install-qt -b "$AQT_MIRROR" -O "$QT_INSTALL_BASE" \
-        "$host" "$target" "$QT_VERSION" "$arch" -m "$aqt_name"
+        "$host" "$target" "$version" "$arch" -m "$aqt_name"
     if [ "$DRY_RUN" -eq 0 ] && [ ! -f "$cmake_file" ]; then
         fail "Qt ${cmake_name} did not appear at $cmake_file"
     fi
@@ -177,23 +187,28 @@ ensure_qt_module() {
 
 #================================================================================
 ensure_qt_arch() {
-    local host="$1" target="$2" arch="$3" dirname="$4"
+    local host="$1" target="$2" version="$3" arch="$4" dirname="$5" aqt_module="$6"
     local prefix
-    prefix="$(qt_prefix "$dirname")"
+    prefix="$(qt_prefix "$version" "$dirname")"
     if [ -f "$prefix/lib/cmake/Qt6/Qt6Config.cmake" ]; then
-        ok "Qt ${QT_VERSION} ${dirname}"
+        ok "Qt ${version} ${dirname}"
     else
-        step "aqt install-qt ${host} ${target} ${QT_VERSION} ${arch}"
-        run $SUDO mkdir -p "$QT_INSTALL_BASE"
-        if [ "$DRY_RUN" -eq 0 ]; then
+        step "aqt install-qt ${host} ${target} ${version} ${arch}"
+        if [ ! -d "$QT_INSTALL_BASE" ]; then
+            run $SUDO mkdir -p "$QT_INSTALL_BASE"
+        fi
+        if [ "$DRY_RUN" -eq 0 ] && [ ! -w "$QT_INSTALL_BASE" ]; then
             $SUDO chown "$USER:$USER" "$QT_INSTALL_BASE" 2>/dev/null || true
         fi
-        run python3 -m aqt install-qt -b "$AQT_MIRROR" -O "$QT_INSTALL_BASE" "$host" "$target" "$QT_VERSION" "$arch"
+        run python3 -m aqt install-qt -b "$AQT_MIRROR" -O "$QT_INSTALL_BASE" \
+            "$host" "$target" "$version" "$arch"
         if [ "$DRY_RUN" -eq 0 ] && [ ! -f "$prefix/lib/cmake/Qt6/Qt6Config.cmake" ]; then
             fail "Qt ${dirname} did not appear at $prefix"
         fi
     fi
-    ensure_qt_module "$host" "$target" "$arch" "$dirname" "Multimedia" "qtmultimedia"
+    if [ -n "$aqt_module" ]; then
+        ensure_qt_module "$host" "$target" "$version" "$arch" "$dirname" "Multimedia" "$aqt_module"
+    fi
 }
 
 #================================================================================
@@ -241,8 +256,9 @@ ensure_android_sdk() {
     fi
 
     local ndk="$ANDROID_SDK_ROOT/ndk/$ANDROID_NDK_VERSION"
-    if [ -d "$ndk" ] && [ -d "$ANDROID_SDK_ROOT/platforms/$ANDROID_PLATFORM" ]; then
-        ok "Android SDK platform $ANDROID_PLATFORM and NDK $ANDROID_NDK_VERSION"
+    local build_tools="$ANDROID_SDK_ROOT/build-tools/$ANDROID_BUILD_TOOLS"
+    if [ -d "$ndk" ] && [ -d "$ANDROID_SDK_ROOT/platforms/$ANDROID_PLATFORM" ] && [ -d "$build_tools" ]; then
+        ok "Android SDK platform $ANDROID_PLATFORM, build-tools $ANDROID_BUILD_TOOLS, NDK $ANDROID_NDK_VERSION"
         return 0
     fi
     step "sdkmanager platforms, build-tools, ndk"
@@ -284,7 +300,8 @@ ensure_firebase() {
 
 echo
 info "Mode: $MODE"
-info "Qt for Windows/Android: $QT_VERSION"
+info "Qt for Windows: $QT_VERSION"
+info "Qt for Android: $QT_ANDROID_VERSION"
 echo
 
 if [ "$MODE" = "all" ] || [ "$MODE" = "linux" ]; then
@@ -299,8 +316,8 @@ if [ "$MODE" = "all" ] || [ "$MODE" = "windows" ]; then
     apt_install "${WINDOWS_PACKAGES[@]}"
     ensure_cmake
     ensure_aqt
-    ensure_qt_arch linux desktop "$QT_HOST_ARCH" "$QT_HOST_DIRNAME"
-    ensure_qt_arch windows desktop "$QT_WINDOWS_ARCH" "$QT_WINDOWS_DIRNAME"
+    ensure_qt_arch linux desktop "$QT_VERSION" "$QT_HOST_ARCH" "$QT_HOST_DIRNAME" "qtmultimedia"
+    ensure_qt_arch windows desktop "$QT_VERSION" "$QT_WINDOWS_ARCH" "$QT_WINDOWS_DIRNAME" "qtmultimedia"
     echo
 fi
 
@@ -309,8 +326,18 @@ if [ "$MODE" = "all" ] || [ "$MODE" = "android" ]; then
     apt_install "${ANDROID_PACKAGES[@]}"
     ensure_cmake
     ensure_aqt
-    ensure_qt_arch linux desktop "$QT_HOST_ARCH" "$QT_HOST_DIRNAME"
-    ensure_qt_arch linux android "$QT_ANDROID_ARCH" "$QT_ANDROID_DIRNAME"
+    export JAVA_HOME="$ANDROID_JAVA_HOME"
+    export PATH="$JAVA_HOME/bin:$PATH"
+    ensure_qt_arch linux desktop "$QT_ANDROID_VERSION" "$QT_ANDROID_HOST_ARCH" "$QT_HOST_DIRNAME" ""
+    ensure_qt_arch all_os android "$QT_ANDROID_VERSION" "$QT_ANDROID_ARCH" "$QT_ANDROID_DIRNAME" "qtmultimedia"
+    if [ "$DRY_RUN" -eq 0 ]; then
+        android_deploy="$(qt_prefix "$QT_ANDROID_VERSION" "$QT_HOST_DIRNAME")/bin/androiddeployqt"
+        if [ ! -x "$android_deploy" ]; then
+            fail "androiddeployqt did not appear at $android_deploy"
+        else
+            ok "androiddeployqt"
+        fi
+    fi
     ensure_android_udev
     ensure_android_sdk
     ensure_firebase

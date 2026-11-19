@@ -1,16 +1,14 @@
 # Google Play
 
-The signed APK from `./build-android.sh` installs over USB. Play will not accept that package as it is built today. Two platform requirements are still open, and a few listing items have to be pasted into Play Console by hand.
+`./build-android.sh` writes two signed files. `dist/ntpclock-<version>-arm64-v8a.apk` installs over USB. `dist/ntpclock-<version>-arm64-v8a.aab` is the file Play Console accepts. A few listing items still have to be pasted into Play Console by hand.
 
-Package name: `com.kirayim.ntpclock`. Version name `0.1.0`, version code `1`.
+Package name: `com.kirayim.ntpclock`. Version name `0.1.0`, version code `1`. Minimum Android version: 9 (API 28). Target: Android 16 (API 36).
 
-## What blocks an upload
+## What the package already satisfies
 
-Play requires a new app to target Android 16 (API 36). This build targets API 33, because Qt 6.6.3 and `scripts/prereqs.env` pin `ANDROID_PLATFORM=android-33`, and the only platform installed under `/opt/android-sdk/platforms` is `android-33`. The requirement took effect on 31 August 2026. The extension date was 1 November 2026.
+The Android kit is Qt 6.11.3, with NDK 27.2.12479018, SDK platform android-36, build-tools 36.0.0, and JDK 21. Those pins live in `scripts/prereqs.env`. That NDK's CMake toolchain only accepts a native platform through android-35, so the C++ sysroot is android-35 while Gradle still compiles and targets API 36. Qt 6.11 supports Android 9 through 16, and its libraries are built for 16 KB pages. The app link uses `-Wl,-z,max-page-size=16384`. `build-android.sh` refuses to finish unless the APK and the bundle both have LOAD alignment of at least `0x4000`, and unless the APK's target SDK is 36 and its minimum SDK is 28.
 
-Play also requires native libraries to be aligned to 16 KB pages. `libntpclock` and `libQt6Core` in the current APK are aligned to 4 KB (`0x1000`). Relinking only this app does not fix Qt's prebuilt libraries. A newer Qt Android kit, built with a current NDK and `-Wl,-z,max-page-size=16384`, is the way through both of these.
-
-Play Console wants an Android App Bundle, not an APK. After the kit can target API 36, `bundleRelease` in the generated `android-build` project produces the `.aab`. Sign it with the same release keystore the APK already uses, and enroll that key in Play App Signing. Losing the keystore means you cannot ship updates.
+Play App Signing should enroll the same release keystore the script already uses. Losing that keystore means you cannot ship updates. The password stays in the environment. It is not in the repo.
 
 ## Listing text
 

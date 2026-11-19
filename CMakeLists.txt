@@ -60,6 +60,7 @@ endif()
 target_include_directories(ntpclock PRIVATE src "${NTPCLOCK_GENERATED_DIR}")
 add_dependencies(ntpclock ntpclock_version)
 if(ANDROID)
+    qt_policy(SET QTP0002 NEW)
     find_program(NTPCLOCK_IMAGEMAGICK NAMES convert magick REQUIRED)
     set(NTPCLOCK_ANDROID_PACKAGE_DIR "${CMAKE_BINARY_DIR}/android-package")
     set(NTPCLOCK_ANDROID_ICON "${NTPCLOCK_ANDROID_PACKAGE_DIR}/res/mipmap-xxxhdpi/ic_launcher.png")
@@ -85,8 +86,14 @@ if(ANDROID)
     set_target_properties(ntpclock PROPERTIES
             QT_ANDROID_PACKAGE_SOURCE_DIR "${NTPCLOCK_ANDROID_PACKAGE_DIR}"
             QT_ANDROID_PACKAGE_NAME "org.qtproject.example.ntpclock"
+            QT_ANDROID_TARGET_SDK_VERSION 36
+            QT_ANDROID_MIN_SDK_VERSION 28
     )
+    # NDK r27 aligns to 4 KB unless the link asks for 16 KB pages.
+    # https://doc.qt.io/qt-6.11/android.html
+    target_link_options(ntpclock PRIVATE "-Wl,-z,max-page-size=16384")
     cmake_language(DEFER CALL add_dependencies ntpclock_make_apk android_icons)
+    cmake_language(DEFER CALL add_dependencies ntpclock_make_aab android_icons)
 endif()
 target_link_libraries(ntpclock PRIVATE
         Qt::Core
