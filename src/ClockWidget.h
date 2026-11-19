@@ -35,6 +35,9 @@ public:
 //================================================================================
     // Value painted into the timing block on the last frame, or -1.
     int timingValue() const;
+//================================================================================
+    // Milliseconds since the epoch painted on the last frame, or -1.
+    qint64 displayEpochMs() const;
 
 signals:
 //================================================================================
@@ -68,6 +71,7 @@ private:
     QRect m_timingBlock;
     QRect m_footerBand;
     int m_timingValue = -1;
+    qint64 m_displayEpochMs = -1;
     qint64 m_shownSecond = -1;
     int m_digitCell = 0;
     QImage m_digitSprite[10];

@@ -35,6 +35,10 @@ struct LatencyReading {
     int milliseconds = 0;
     int clockValue = -1;
     int otherValue = -1;
+    // Set when the painted HH:mm:ss.zzz on both screens was read. Empty when
+    // the gap comes from the timing block alone.
+    QString otherClock;
+    QString thisClock;
 };
 
 //================================================================================
@@ -53,7 +57,9 @@ QImage renderTimingBlock(int value, int cellPx);
 std::optional<TimingHit> findTimingBlock(const QImage& image);
 
 //================================================================================
-LatencyReading measureLatency(const QImage& otherScreen, int clockValue);
+// `clockDisplayMs` is the milliseconds since the epoch painted on this clock,
+// or -1 when the caller only has the four-second timing code.
+LatencyReading measureLatency(const QImage& otherScreen, int clockValue, qint64 clockDisplayMs = -1);
 
 //================================================================================
 QString latencyLabel(const LatencyReading& reading);

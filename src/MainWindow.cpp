@@ -353,7 +353,7 @@ void MainWindow::capture() {
     }
     // Grab the clock itself. The camera inset is a sibling, so it is not in the picture.
     const QImage clock = m_clock->grab().toImage();
-    const QString latency = latencyLabel(measureLatency(photo, m_clock->timingValue()));
+    const QString latency = latencyLabel(measureLatency(photo, m_clock->timingValue(), m_clock->displayEpochMs()));
     m_inset->stop();
     m_compare->setPair(photo, clock, latency);
     m_stack->setCurrentWidget(m_compare);

@@ -1,9 +1,11 @@
 #include "TimingBlock.h"
 #include "TimingCode.h"
 
+#include <QDateTime>
 #include <QElapsedTimer>
 #include <QImage>
 #include <QPainter>
+#include <QTimeZone>
 #include <QTransform>
 
 #include <algorithm>
@@ -111,7 +113,7 @@ TEST(TimingBlock, ReadsASlantedPhotoAsTheMillisecondsOnTheScreen) {
     ASSERT_TRUE(reading.ok);
     EXPECT_EQ(reading.otherValue, 989);
     EXPECT_EQ(reading.milliseconds, 307);
-    EXPECT_EQ(latencyLabel(reading), QStringLiteral("307 ms behind\n.989 other · .296 this"));
+    EXPECT_EQ(latencyLabel(reading), QStringLiteral("307 ms behind\n0.989 other · 1.296 this"));
 
     // A steeper slant. The block reads 1258, and this clock was at 1546,
     // which is 288 ms, the gap between the two millisecond displays.
@@ -157,7 +159,7 @@ TEST(TimingBlock, ReadsACloseUpCameraFrameOfTheBlock) {
     ASSERT_TRUE(reading.ok);
     EXPECT_EQ(reading.otherValue, 3410);
     EXPECT_EQ(reading.milliseconds, 221);
-    EXPECT_EQ(latencyLabel(reading), QStringLiteral("221 ms behind\n.410 other · .631 this"));
+    EXPECT_EQ(latencyLabel(reading), QStringLiteral("221 ms behind\n3.410 other · 3.631 this"));
 }
 
 //================================================================================
@@ -218,7 +220,7 @@ TEST(TimingBlock, SaysWhenThePictureHasNoBlock) {
     const LatencyReading read = measureLatency(renderTimingBlock(900, 6), 1269);
     ASSERT_TRUE(read.ok);
     EXPECT_EQ(read.milliseconds, 369);
-    EXPECT_EQ(latencyLabel(read), QStringLiteral("369 ms behind\n.900 other · .269 this"));
+    EXPECT_EQ(latencyLabel(read), QStringLiteral("369 ms behind\n0.900 other · 1.269 this"));
 }
 
 //================================================================================
@@ -265,4 +267,21 @@ TEST(TimingBlock, SearchStaysQuickOnAClockSizedImage) {
     ASSERT_TRUE(hit.has_value());
     EXPECT_EQ(hit->value, 1500);
     EXPECT_LT(elapsed, 1500);
+}
+
+//================================================================================
+// The tablet compare shot painted 19:46:49.487 against this clock at
+// 19:46:49.650. A 15-pixel bright patch was accepted as the block and the
+// line said 1219 ms ahead. The patch is too small, and the painted time is
+// readable, so the gap is 163 ms behind.
+TEST(TimingBlock, ReadsThePaintedTimeInsteadOfATinyBrightPatch) {
+    const QImage photo(QString(NTPCLOCK_FIXTURE_DIR) + QStringLiteral("/compare-other-194649487.png"));
+    ASSERT_FALSE(photo.isNull());
+    const QDateTime clock(QDate(2026, 11, 19), QTime(19, 46, 49, 650), QTimeZone::systemTimeZone());
+    const LatencyReading reading = measureLatency(photo, 1650, clock.toMSecsSinceEpoch());
+    ASSERT_TRUE(reading.ok);
+    EXPECT_EQ(reading.otherValue, 1487);
+    EXPECT_EQ(reading.milliseconds, 163);
+    EXPECT_EQ(latencyLabel(reading),
+              QStringLiteral("163 ms behind\n19:46:49.487 other · 19:46:49.650 this"));
 }

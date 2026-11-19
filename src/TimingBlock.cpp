@@ -1,10 +1,14 @@
 #include "TimingBlock.h"
 
+#include "DigitRead.h"
+
 #include <algorithm>
 #include <cstdint>
 #include <vector>
 
+#include <QDateTime>
 #include <QPainter>
+#include <QTimeZone>
 
 namespace {
 //================================================================================
@@ -327,6 +331,14 @@ std::optional<Match> searchView(const View& view) {
     const auto strong = [](const Match& match) { return match.edges == 4 && match.contrast >= 140; };
     auto consider = [&](const std::optional<Match>& match) {
         if (match.has_value() == false) {
+            return;
+        }
+        // A few bright pixels can satisfy a 3-pixel cell. The real block is a
+        // large fraction of a screen photo. A drawing that is only the block
+        // still passes, because it fills its own picture.
+        const int shortSide = std::min(match->bounds.width(), match->bounds.height());
+        const int imageShort = std::min(view.width, view.height);
+        if (shortSide * 16 < imageShort) {
             return;
         }
         const bool matchStrong = strong(*match);
@@ -764,7 +776,16 @@ std::optional<TimingHit> findTimingBlock(const QImage& image) {
 }
 
 //================================================================================
-LatencyReading measureLatency(const QImage& otherScreen, int clockValue) {
+QString clockText(int hour, int minute, int second, int millis) {
+    return QStringLiteral("%1:%2:%3.%4")
+            .arg(hour, 2, 10, QLatin1Char('0'))
+            .arg(minute, 2, 10, QLatin1Char('0'))
+            .arg(second, 2, 10, QLatin1Char('0'))
+            .arg(millis, 3, 10, QLatin1Char('0'));
+}
+
+//================================================================================
+LatencyReading measureLatency(const QImage& otherScreen, int clockValue, qint64 clockDisplayMs) {
     LatencyReading reading;
     reading.clockValue = clockValue;
     if (clockValue < 0 || clockValue >= kTimingModulus) {
@@ -777,6 +798,39 @@ LatencyReading measureLatency(const QImage& otherScreen, int clockValue) {
     reading.ok = true;
     reading.otherValue = hit->value;
     reading.milliseconds = latencyMs(clockValue, hit->value);
+    // The block is the fallback. A clear HH:mm:ss and three millisecond digits
+    // are the painted time, and they replace a block that sampled the wrong cells.
+    const PaintedClock painted = readPaintedClock(otherScreen, hit->bounds);
+    if (painted.timeOk == false || painted.millisOk == false || clockDisplayMs < 0) {
+        return reading;
+    }
+    const QTimeZone zone = QTimeZone::systemTimeZone();
+    const QDateTime clock = QDateTime::fromMSecsSinceEpoch(clockDisplayMs, zone);
+    const QTime otherTime(painted.hour, painted.minute, painted.second, painted.millis);
+    if (clock.isValid() == false || otherTime.isValid() == false) {
+        return reading;
+    }
+    const QDateTime other(clock.date(), otherTime, zone);
+    if (other.isValid() == false) {
+        return reading;
+    }
+    qint64 delta = clock.toMSecsSinceEpoch() - other.toMSecsSinceEpoch();
+    constexpr qint64 kDayMs = 24LL * 60 * 60 * 1000;
+    if (delta > kDayMs / 2) {
+        delta -= kDayMs;
+    } else if (delta < -kDayMs / 2) {
+        delta += kDayMs;
+    }
+    // A wild digit read must not replace the block. Two minutes covers a
+    // filmed screen; an hour-scale gap is a misread.
+    if (delta < -120000 || delta > 120000) {
+        return reading;
+    }
+    reading.milliseconds = static_cast<int>(delta);
+    reading.otherValue = (painted.second % 4) * 1000 + painted.millis;
+    reading.otherClock = clockText(painted.hour, painted.minute, painted.second, painted.millis);
+    const QTime shown = clock.time();
+    reading.thisClock = clockText(shown.hour(), shown.minute(), shown.second(), shown.msec());
     return reading;
 }
 
@@ -787,11 +841,12 @@ QString latencyLabel(const LatencyReading& reading) {
     }
     const int magnitude = std::abs(reading.milliseconds);
     const auto direction = reading.milliseconds >= 0 ? QStringLiteral("behind") : QStringLiteral("ahead");
-    const int otherMs = reading.otherValue % 1000;
-    const int clockMs = reading.clockValue % 1000;
-    return QStringLiteral("%1 ms %2\n.%3 other · .%4 this")
-            .arg(magnitude)
-            .arg(direction)
-            .arg(otherMs, 3, 10, QLatin1Char('0'))
-            .arg(clockMs, 3, 10, QLatin1Char('0'));
+    const QString detail = reading.otherClock.isEmpty() == false && reading.thisClock.isEmpty() == false
+                                   ? QStringLiteral("%1 other · %2 this").arg(reading.otherClock, reading.thisClock)
+                                   : QStringLiteral("%1.%2 other · %3.%4 this")
+                                             .arg(reading.otherValue / 1000)
+                                             .arg(std::abs(reading.otherValue % 1000), 3, 10, QLatin1Char('0'))
+                                             .arg(reading.clockValue / 1000)
+                                             .arg(std::abs(reading.clockValue % 1000), 3, 10, QLatin1Char('0'));
+    return QStringLiteral("%1 ms %2\n%3").arg(magnitude).arg(direction).arg(detail);
 }

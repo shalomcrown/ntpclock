@@ -27,6 +27,7 @@ set(NTPCLOCK_SOURCES
         src/VisibleArea.cpp
         src/TimingCode.cpp
         src/TimingBlock.cpp
+        src/DigitRead.cpp
         src/MainWindow.cpp
         src/ClockWidget.cpp
         src/ClockFormat.cpp
@@ -137,6 +138,7 @@ if(NOT CMAKE_CROSSCOMPILING)
             tests/ntp_live_test.cpp
             tests/version_test.cpp
             tests/timing_block_test.cpp
+            tests/digit_read_test.cpp
             ${NTPCLOCK_SOURCES}
             resources/guide.qrc
     )

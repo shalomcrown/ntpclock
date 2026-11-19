@@ -174,6 +174,11 @@ int ClockWidget::timingValue() const {
 }
 
 //================================================================================
+qint64 ClockWidget::displayEpochMs() const {
+    return m_displayEpochMs;
+}
+
+//================================================================================
 void ClockWidget::setInsetRect(const QRect& rect) {
     if (m_insetRect == rect) {
         return;
@@ -197,6 +202,7 @@ void ClockWidget::paintEvent(QPaintEvent* event) {
     const bool trustOffset = m_snapshot.networkAllowed && m_snapshot.synced;
     const qint64 displayUs = NtpTime::systemNowUs() + (trustOffset ? m_snapshot.offsetUs : 0);
     m_timingValue = timingValueFromUs(displayUs);
+    m_displayEpochMs = displayUs >= 0 ? (displayUs + 500) / 1000 : -((-displayUs + 500) / 1000);
     const ClockLines lines = formatClock(displayUs, m_snapshot, QTimeZone::systemTimeZone());
 
     const QSize size(width(), height());
