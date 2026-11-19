@@ -46,5 +46,6 @@ Data safety answers:
 
 - Phone screenshots: `docs/images/clock.jpg`, `docs/images/portrait.jpg`, `docs/images/compare.jpg`
 - 512×512 icon: `docs/play-icon-512.png`
+- 1024×500 feature graphic: `docs/play-feature-graphic.png` (24-bit PNG, no alpha)
 
-Still to make in the console: a 1024×500 feature graphic, and a content rating questionnaire. The app has no violence, no user chat, and no unrestricted web. Category: Tools.
+Still to do in the console: upload the feature graphic and the screenshots, and answer the content rating questionnaire. The app has no violence, no user chat, and no unrestricted web. Category: Tools.
