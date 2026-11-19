@@ -4,9 +4,12 @@
 
 #include <QColor>
 #include <QCoreApplication>
+#include <QEventLoop>
 #include <QFontDatabase>
 #include <QImage>
 #include <QPainter>
+#include <QPaintEvent>
+#include <QTimer>
 
 #include <algorithm>
 
@@ -77,6 +80,54 @@ TEST(ClockWidget, PaintsLightDigitsOnBlack) {
         }
     }
     EXPECT_TRUE(sawLight);
+}
+
+//================================================================================
+// The 8 ms tick repaints only the milliseconds. That paint used to be counted
+// as a drawn second, so the hours and seconds stayed on screen for several
+// more seconds.
+class SecondProbe : public ClockWidget {
+public:
+    bool paintedSeconds = false;
+
+protected:
+//================================================================================
+    void paintEvent(QPaintEvent* event) override {
+        // On an 800x600 clock the time line sits near y=120. The millisecond
+        // band is below the middle of the widget.
+        if (event->rect().contains(width() / 2, height() / 5)) {
+            paintedSeconds = true;
+        }
+        ClockWidget::paintEvent(event);
+    }
+};
+
+//================================================================================
+TEST(ClockWidget, RepaintsTheSecondsAfterAMillisecondTick) {
+    SecondProbe widget;
+    widget.resize(800, 600);
+    qint64 offsetUs = 0;
+    widget.setSource([&offsetUs] {
+        ClockSnapshot snapshot;
+        snapshot.networkAllowed = true;
+        snapshot.synced = true;
+        snapshot.offsetUs = offsetUs;
+        snapshot.lastNtpUs = NtpTime::systemNowUs();
+        snapshot.server = QStringLiteral("time.cloudflare.com");
+        return snapshot;
+    });
+    widget.show();
+    QCoreApplication::processEvents();
+    widget.paintedSeconds = false;
+
+    offsetUs = 5 * 1000000LL;
+    widget.repaint(QRect(0, widget.height() * 2 / 3, widget.width(), widget.height() / 3));
+    EXPECT_FALSE(widget.paintedSeconds);
+
+    QEventLoop loop;
+    QTimer::singleShot(40, &loop, &QEventLoop::quit);
+    loop.exec();
+    EXPECT_TRUE(widget.paintedSeconds);
 }
 
 //================================================================================

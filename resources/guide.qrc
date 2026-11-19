@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/guide">
+        <file alias="README.md">../README.md</file>
+        <file alias="docs/images/clock.jpg">../docs/images/clock.jpg</file>
+        <file alias="docs/images/portrait.jpg">../docs/images/portrait.jpg</file>
+        <file alias="docs/images/compare.jpg">../docs/images/compare.jpg</file>
+    </qresource>
+</RCC>

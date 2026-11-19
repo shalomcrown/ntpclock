@@ -1,6 +1,8 @@
 #include "TimingBlock.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <vector>
 
 #include <QPainter>
 
@@ -125,11 +127,34 @@ int cellCenter(int origin, int index, int cell) {
 }
 
 //================================================================================
+// The white frame is painted on the outer edge of each border cell. A photo
+// makes that bar thinner than half a cell, so the cell centre can fall in the
+// black gap. Sample the outer edge instead.
+void framePoint(int originX, int originY, int col, int row, int boxCols, int boxRows, int cell, int* x, int* y) {
+    const int inset = std::max(1, cell / 5);
+    *x = cellCenter(originX, col, cell);
+    *y = cellCenter(originY, row, cell);
+    if (row == 0) {
+        *y = originY + inset;
+    } else if (row == boxRows - 1) {
+        *y = originY + row * cell + cell - 1 - inset;
+    }
+    if (col == 0) {
+        *x = originX + inset;
+    } else if (col == boxCols - 1) {
+        *x = originX + col * cell + cell - 1 - inset;
+    }
+}
+
+//================================================================================
 bool quickProbe(const View& view, const GridMap& map, int originX, int originY, int cell) {
     for (int probe = 0; probe < 4; ++probe) {
         const int index = map.quick[probe];
-        const int lum = view.at(cellCenter(originX, map.frameCol[index], cell),
-                                cellCenter(originY, map.frameRow[index], cell));
+        int sampleX = 0;
+        int sampleY = 0;
+        framePoint(originX, originY, map.frameCol[index], map.frameRow[index], map.boxCols, map.boxRows, cell,
+                   &sampleX, &sampleY);
+        const int lum = view.at(sampleX, sampleY);
         const bool white = lum > view.threshold;
         if (white != map.frameWhite[index]) {
             return false;
@@ -161,8 +186,11 @@ std::optional<Match> tryMatch(const View& view, const GridMap& map, int originX,
     int whiteCount = 0;
     int blackSum = 0;
     for (int index = 0; index < map.frameCount; ++index) {
-        const int lum = view.at(cellCenter(originX, map.frameCol[index], cell),
-                                cellCenter(originY, map.frameRow[index], cell));
+        int sampleX = 0;
+        int sampleY = 0;
+        framePoint(originX, originY, map.frameCol[index], map.frameRow[index], map.boxCols, map.boxRows, cell,
+                   &sampleX, &sampleY);
+        const int lum = view.at(sampleX, sampleY);
         const bool white = lum > view.threshold;
         if (white != map.frameWhite[index]) {
             return std::nullopt;
@@ -214,6 +242,11 @@ std::optional<Match> tryMatch(const View& view, const GridMap& map, int originX,
             continue;
         }
         bits |= 1 << bit;
+    }
+    // Every data cell white is a bright blob such as a digit stroke, not a
+    // reading. Only a box with four sharp sides is trusted to say so.
+    if (bits == 0xFFF && edgeScore < 4) {
+        return std::nullopt;
     }
     int value = -1;
     if (ambiguous == 0) {
@@ -288,9 +321,10 @@ std::optional<Match> searchView(const View& view) {
     }
     std::optional<Match> best;
     bool ambiguous = false;
-    const auto strong = [](const Match& match) { return match.edges == 4 && match.contrast >= 200; };
-    // Four sharp sides identify a clean rendering and outrank anything found in
-    // the digits. A photograph has a softer edge, so the largest frame wins.
+    // A screen photo is dimmer than a clean render, so the frame-to-notch
+    // contrast lands under 200. Four sharp sides still mean the grid, and they
+    // outrank a larger bright shape whose data cells are all white.
+    const auto strong = [](const Match& match) { return match.edges == 4 && match.contrast >= 140; };
     auto consider = [&](const std::optional<Match>& match) {
         if (match.has_value() == false) {
             return;
@@ -302,13 +336,18 @@ std::optional<Match> searchView(const View& view) {
         }
         const int area = match->bounds.width() * match->bounds.height();
         const int bestArea = best.has_value() ? best->bounds.width() * best->bounds.height() : 0;
-        if (best.has_value() == false || (matchStrong && bestStrong == false) ||
-            (matchStrong == bestStrong && area > bestArea)) {
+        const bool moreEdges = best.has_value() && match->edges > best->edges && match->contrast + 15 >= best->contrast;
+        // A brighter frame beats a larger dim one. Digit strokes are big and faint.
+        const bool brighter = best.has_value() && match->edges == best->edges && matchStrong == bestStrong &&
+                              match->contrast > best->contrast + 15;
+        if (best.has_value() == false || (matchStrong && bestStrong == false) || moreEdges || brighter ||
+            (match->edges == best->edges && matchStrong == bestStrong && match->contrast + 15 >= best->contrast &&
+             area > bestArea)) {
             best = match;
             ambiguous = false;
             return;
         }
-        if (matchStrong != bestStrong || area * 6 / 5 < bestArea) {
+        if (match->edges != best->edges || matchStrong != bestStrong || area * 6 / 5 < bestArea) {
             return;
         }
         if (match->value != best->value && match->contrast + 15 >= best->contrast) {
@@ -349,29 +388,38 @@ std::optional<Match> searchView(const View& view) {
         if (run < 16) {
             return;
         }
-        for (const int parts : {4, 5}) {
-            const int cell = run / parts;
-            for (const int near : {cell - 1, cell, cell + 1}) {
-                if (near < 3) {
-                    continue;
-                }
-                for (const int notch : {0, near}) {
-                    const int along = start - notch;
-                    for (const int slide : {0, near / 2}) {
-                        if (horizontal) {
-                            const int originY = boxStartsHere ? across : across - kTimingGridRows * near;
-                            propose(along - slide, originY, near);
-                            propose(along - slide, originY - slide, near);
-                            propose(along, boxStartsHere ? across : across - kTimingGridCols * near, near);
-                        } else {
-                            const int originX = boxStartsHere ? across : across - kTimingGridCols * near;
-                            propose(originX, along - slide, near);
-                            propose(originX - slide, along - slide, near);
-                            propose(boxStartsHere ? across : across - kTimingGridRows * near, along, near);
-                        }
-                        if (foundEnough()) {
-                            return;
-                        }
+        // A slanted photo keeps the sharp step on one row for only part of
+        // the side, so the run can be shorter than the side. Try cell sizes
+        // from a fifth of the run to a little past it. Large cells step by a
+        // few percent, which the frame sampling tolerates, so a camera frame
+        // with cells over 100 pixels is searched as quickly as a small one.
+        const int smallest = std::max(3, run / 5);
+        const int largest = std::max(smallest, run + run / 5);
+        for (int near = smallest; near <= largest; near += std::max(1, near / 32)) {
+            for (const int notch : {0, near}) {
+                const int along = start - notch;
+                const int slides[] = {0, std::max(1, near / 4), near / 2, (3 * near) / 4};
+                for (int slideIndex = 0; slideIndex < 4; ++slideIndex) {
+                    const int slide = slides[slideIndex];
+                    if (slideIndex > 0 && slide == slides[slideIndex - 1]) {
+                        continue;
+                    }
+                    if (horizontal) {
+                        const int originY = boxStartsHere ? across : across - kTimingGridRows * near;
+                        // The sharp piece of a slanted side is not always the corner.
+                        propose(along - slide, originY, near);
+                        propose(along - slide, originY - slide, near);
+                        propose(along - slide, originY + slide, near);
+                        propose(along, boxStartsHere ? across : across - kTimingGridCols * near, near);
+                    } else {
+                        const int originX = boxStartsHere ? across : across - kTimingGridCols * near;
+                        propose(originX, along - slide, near);
+                        propose(originX - slide, along - slide, near);
+                        propose(originX + slide, along - slide, near);
+                        propose(boxStartsHere ? across : across - kTimingGridRows * near, along, near);
+                    }
+                    if (foundEnough()) {
+                        return;
                     }
                 }
             }
@@ -448,10 +496,109 @@ std::optional<Match> searchView(const View& view) {
             proposeRun(y0, x, y - y0, false, rising);
         }
     }
-    if (ambiguous) {
+    // A photo that is a few degrees off square has sharp-edge runs far shorter
+    // than a side, so they say nothing about the cell size. The frame is also
+    // one large bright shape with a hollow middle. Find that shape on a coarse
+    // grid, then search cell sizes and offsets around its bounding box.
+    if (foundEnough() == false) {
+        const int step = std::max(1, std::max(view.width, view.height) / 640);
+        const int gridWidth = view.width / step;
+        const int gridHeight = view.height / step;
+        std::vector<uint8_t> bright(static_cast<size_t>(gridWidth) * gridHeight, 0);
+        for (int y = 0; y < gridHeight; ++y) {
+            for (int x = 0; x < gridWidth; ++x) {
+                bright[static_cast<size_t>(y) * gridWidth + x] =
+                        view.at(x * step + step / 2, y * step + step / 2) > view.threshold ? 1 : 0;
+            }
+        }
+        std::vector<int> pending;
+        for (int startY = 0; startY < gridHeight && foundEnough() == false; ++startY) {
+            for (int startX = 0; startX < gridWidth && foundEnough() == false; ++startX) {
+                const size_t startIndex = static_cast<size_t>(startY) * gridWidth + startX;
+                if (bright[startIndex] != 1) {
+                    continue;
+                }
+                int minX = startX;
+                int maxX = startX;
+                int minY = startY;
+                int maxY = startY;
+                int count = 0;
+                bright[startIndex] = 2;
+                pending.assign(1, static_cast<int>(startIndex));
+                while (pending.empty() == false) {
+                    const int index = pending.back();
+                    pending.pop_back();
+                    const int x = index % gridWidth;
+                    const int y = index / gridWidth;
+                    ++count;
+                    minX = std::min(minX, x);
+                    maxX = std::max(maxX, x);
+                    minY = std::min(minY, y);
+                    maxY = std::max(maxY, y);
+                    const int next[4] = {x > 0 ? index - 1 : -1, x + 1 < gridWidth ? index + 1 : -1,
+                                         y > 0 ? index - gridWidth : -1, y + 1 < gridHeight ? index + gridWidth : -1};
+                    for (const int neighbour : next) {
+                        if (neighbour >= 0 && bright[static_cast<size_t>(neighbour)] == 1) {
+                            bright[static_cast<size_t>(neighbour)] = 2;
+                            pending.push_back(neighbour);
+                        }
+                    }
+                }
+                const int boxWidth = maxX - minX + 1;
+                const int boxHeight = maxY - minY + 1;
+                if (boxWidth < 6 || boxHeight < 6) {
+                    continue;
+                }
+                const double aspect = static_cast<double>(boxWidth) / boxHeight;
+                const double fill = static_cast<double>(count) / (static_cast<double>(boxWidth) * boxHeight);
+                const bool upright = std::abs(aspect - 5.0 / 6.0) <= 0.2;
+                const bool turned = std::abs(aspect - 6.0 / 5.0) <= 0.25;
+                if ((upright == false && turned == false) || fill < 0.2 || fill > 0.65) {
+                    continue;
+                }
+                const int left = minX * step;
+                const int top = minY * step;
+                const int wide = boxWidth * step;
+                const int tall = boxHeight * step;
+                // Upright is 5 cells wide, turned is 6. The box is a little
+                // larger than the grid when the photo is tilted.
+                const int cellGuess = upright ? (wide / 5 + tall / 6) / 2 : (wide / 6 + tall / 5) / 2;
+                const int reach = std::max(1, cellGuess / 2);
+                // A close-up frame is hundreds of pixels and the matching grid
+                // sits in a window a couple of pixels wide. Small shapes keep
+                // the coarse step; a large frame is searched one pixel at a time.
+                const bool closeUp = std::min(wide, tall) >= 120;
+                const int offsetStep = closeUp ? 1 : std::max(1, cellGuess / 12);
+                const int cellStep = closeUp ? 1 : std::max(1, cellGuess / 32);
+                for (int cell = cellGuess * 80 / 100; cell <= cellGuess * 120 / 100 && foundEnough() == false;
+                     cell += cellStep) {
+                    for (int originY = top - reach; originY <= top + reach; originY += offsetStep) {
+                        for (int originX = left - reach; originX <= left + reach; originX += offsetStep) {
+                            propose(originX, originY, cell);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // Four sharp sides are certain. A filmed block often loses one side to the
+    // edge of the picture or to glare, so two sharp sides and a bright frame
+    // still count. Anything fainter is a digit or a reflection.
+    if (ambiguous || best.has_value() == false || best->edges < 2 || best->contrast < 140) {
         return std::nullopt;
     }
     return best;
+}
+
+//================================================================================
+std::optional<Match> searchGray(const QImage& gray) {
+    View view;
+    view.bits = gray.constBits();
+    view.width = gray.width();
+    view.height = gray.height();
+    view.stride = gray.bytesPerLine();
+    view.threshold = otsu(view);
+    return searchView(view);
 }
 
 }  // namespace
@@ -606,13 +753,7 @@ std::optional<TimingHit> findTimingBlock(const QImage& image) {
         return std::nullopt;
     }
     const QImage gray = image.convertToFormat(QImage::Format_Grayscale8);
-    View view;
-    view.bits = gray.constBits();
-    view.width = gray.width();
-    view.height = gray.height();
-    view.stride = gray.bytesPerLine();
-    view.threshold = otsu(view);
-    const std::optional<Match> found = searchView(view);
+    const std::optional<Match> found = searchGray(gray);
     if (found.has_value() == false) {
         return std::nullopt;
     }

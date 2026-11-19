@@ -48,7 +48,9 @@ void CompareView::resizeEvent(QResizeEvent* event) {
 
 //================================================================================
 void CompareView::placeChildren() {
-    const int resultHeight = m_result->isVisible() ? 88 : 0;
+    // isVisible() is false while this page is still off the stack, which is
+    // when the shot is stored. isHidden() is the label's own flag.
+    const int resultHeight = m_result->isHidden() ? 0 : 88;
     m_result->setGeometry(16, 8, std::max(0, width() - 32), resultHeight);
     const int buttonWidth = std::min(220, width() - 32);
     m_back->setGeometry((width() - buttonWidth) / 2, height() - 72, buttonWidth, 56);
@@ -57,6 +59,7 @@ void CompareView::placeChildren() {
 //================================================================================
 void CompareView::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
+    placeChildren();
     m_back->setFocus();
 }
 
@@ -65,7 +68,7 @@ void CompareView::paintEvent(QPaintEvent* event) {
     Q_UNUSED(event);
     QPainter painter(this);
     painter.fillRect(rect(), Qt::black);
-    const int top = m_result->isVisible() ? m_result->geometry().bottom() + 8 : 0;
+    const int top = m_result->isHidden() ? 0 : m_result->geometry().bottom() + 8;
     const QRect area = rect().adjusted(0, top, 0, -80);
     const QRect left(area.left(), area.top(), area.width() / 2, area.height());
     const QRect right(left.right() + 1, area.top(), area.width() - left.width(), area.height());

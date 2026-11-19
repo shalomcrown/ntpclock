@@ -7,6 +7,7 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 ### Added
 
 - Full-screen NTP clock for measuring video latency. The time and milliseconds are drawn as large as the window allows.
+- Guide page that shows this readme, with the running version on the first line. Open it with Guide on the clock.
 - Android signing uses the waterfall keystore when an ntpclock keystore is not set.
 - Background NTP sync at startup, every five minutes, and after wake from suspend or sleep.
 - Linux DEB, Windows NSIS, and Android APK build scripts.
@@ -16,5 +17,10 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ### Fixed
 
+- Dragging a finger on the guide was selecting the text. The drag now scrolls the page, and links still open.
 - Android: the bottom (portrait) or right side (landscape) no longer runs off the screen below the camera cutout.
 - The phone clock was updating only a few times a second because each camera frame was converted on the UI thread. The phone now asks for a 120 Hz refresh, and a soft photo of the timing block can still be read.
+- Portrait compare: the latency line is kept when the shot is stored, before that page is on screen.
+- A slanted photo of the timing block was read as every cell white, so a 300 ms gap was reported as 1434 ms. The reader now follows a partial slanted edge and samples the frame bar rather than the middle of the border cell.
+- A close-up camera frame of the same block was still read as every cell white, so the difference came out about 1400 ms. The reader now searches that bright frame one pixel at a time and keeps the reading when one side is cut off by the picture.
+- The seconds line could sit still for a few seconds. A milliseconds repaint was counted as a drawn second, so the hours and seconds were not painted again until much later.

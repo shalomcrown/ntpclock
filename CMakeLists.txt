@@ -37,6 +37,8 @@ set(NTPCLOCK_SOURCES
         src/CameraPermission.cpp
         src/CameraInset.cpp
         src/CompareView.cpp
+        src/GuideView.cpp
+        src/GuideText.cpp
         src/PowerEvents.cpp
         src/ScreenAwake.cpp
         src/AppIcon.cpp
@@ -45,6 +47,7 @@ set(NTPCLOCK_SOURCES
 qt_add_executable(ntpclock
         main.cpp
         ${NTPCLOCK_SOURCES}
+        resources/guide.qrc
 )
 set_target_properties(ntpclock PROPERTIES
         AUTOMOC ON
@@ -121,16 +124,19 @@ if(NOT CMAKE_CROSSCOMPILING)
             tests/camera_permission_test.cpp
             tests/camera_frame_test.cpp
             tests/compare_view_test.cpp
+            tests/guide_test.cpp
             tests/clock_widget_test.cpp
             tests/main_window_test.cpp
             tests/ntp_live_test.cpp
             tests/version_test.cpp
             tests/timing_block_test.cpp
             ${NTPCLOCK_SOURCES}
+            resources/guide.qrc
     )
     target_include_directories(ntpclock_tests PRIVATE src "${NTPCLOCK_GENERATED_DIR}")
+    target_compile_definitions(ntpclock_tests PRIVATE NTPCLOCK_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures")
     add_dependencies(ntpclock_tests ntpclock_version)
-    set_target_properties(ntpclock_tests PROPERTIES AUTOMOC ON)
+    set_target_properties(ntpclock_tests PROPERTIES AUTOMOC ON AUTORCC ON)
     target_link_libraries(ntpclock_tests PRIVATE
             GTest::gtest
             Qt::Core

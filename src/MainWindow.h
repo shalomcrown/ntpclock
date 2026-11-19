@@ -5,6 +5,7 @@
 class CameraInset;
 class ClockWidget;
 class CompareView;
+class GuideView;
 class NtpService;
 class QLabel;
 class QPushButton;
@@ -42,6 +43,8 @@ private:
     void capture();
 //================================================================================
     void showClockPage();
+//================================================================================
+    void showGuide();
 
     NtpService* m_service = nullptr;
     QStackedWidget* m_stack = nullptr;
@@ -50,6 +53,8 @@ private:
     ClockWidget* m_clock = nullptr;
     CameraInset* m_inset = nullptr;
     CompareView* m_compare = nullptr;
+    GuideView* m_guide = nullptr;
+    QPushButton* m_guideButton = nullptr;
     QWidget* m_cameraPermission = nullptr;
     QLabel* m_cameraBody = nullptr;
     QPushButton* m_cameraAllow = nullptr;

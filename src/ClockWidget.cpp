@@ -143,10 +143,12 @@ ClockWidget::ClockWidget(QWidget* parent) : QWidget(parent) {
         }
         const qint64 second = displayUs / 1000000LL;
         // The hours, date, and footer change once a second. The milliseconds
-        // and the timing block change on every tick, and they are the only
-        // part worth repainting that often.
+        // and the timing block change on every tick.
         if (second != m_shownSecond) {
-            update();
+            update(m_dateBand);
+            update(m_timeBand);
+            update(m_footerBand);
+            update(m_millisBand);
             return;
         }
         update(m_millisBand);
@@ -252,7 +254,6 @@ void ClockWidget::paintEvent(QPaintEvent* event) {
         m_layoutFooter = lines.footer;
     }
 
-    m_shownSecond = displayUs / 1000000LL;
     const QRect exposed = event->rect();
     auto want = [&](const QRect& band) { return band.isEmpty() == false && exposed.intersects(band); };
     if (want(m_versionBand)) {
@@ -266,6 +267,9 @@ void ClockWidget::paintEvent(QPaintEvent* event) {
     if (want(m_timeBand)) {
         painter.setPen(Qt::white);
         drawFixedDigits(painter, m_timeBand, m_timeFont, lines.time);
+        // A millisecond-only repaint must not count, or the next tick will
+        // skip the seconds line for as long as that paint was late.
+        m_shownSecond = displayUs / 1000000LL;
     }
     if (want(m_millisBand)) {
         painter.setPen(Qt::white);

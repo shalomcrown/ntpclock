@@ -1,9 +1,11 @@
 #include "MainWindow.h"
 
 #include <QCoreApplication>
+#include <QLabel>
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QSettings>
+#include <QTextBrowser>
 #include <QWidget>
 
 #include <gtest/gtest.h>
@@ -84,4 +86,37 @@ TEST(MainWindow, SelfieButtonDoesNotTakeAPicture) {
     auto* allowCamera = window.findChild<QPushButton*>(QStringLiteral("allowCamera"));
     ASSERT_NE(allowCamera, nullptr);
     EXPECT_FALSE(allowCamera->isVisible());
+}
+
+//================================================================================
+TEST(MainWindow, GuideShowsTheVersionAndTheReadme) {
+    QSettings settings;
+    settings.clear();
+    settings.sync();
+
+    MainWindow window;
+    window.resize(800, 600);
+    window.show();
+    auto* allow = window.findChild<QPushButton*>(QStringLiteral("allowNetwork"));
+    ASSERT_NE(allow, nullptr);
+    allow->click();
+
+    auto* guideButton = window.findChild<QPushButton*>(QStringLiteral("guideButton"));
+    ASSERT_NE(guideButton, nullptr);
+    EXPECT_TRUE(guideButton->isVisible());
+    guideButton->click();
+
+    auto* version = window.findChild<QLabel*>(QStringLiteral("guideVersion"));
+    auto* text = window.findChild<QTextBrowser*>(QStringLiteral("guideText"));
+    ASSERT_NE(version, nullptr);
+    ASSERT_NE(text, nullptr);
+    EXPECT_TRUE(version->isVisible());
+    EXPECT_EQ(version->text(), QCoreApplication::applicationVersion());
+    EXPECT_TRUE(text->toPlainText().contains(QStringLiteral("Photographing another screen")));
+    EXPECT_FALSE(guideButton->isVisible());
+
+    auto* back = window.findChild<QPushButton*>(QStringLiteral("guideBack"));
+    ASSERT_NE(back, nullptr);
+    back->click();
+    EXPECT_TRUE(guideButton->isVisible());
 }

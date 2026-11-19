@@ -2,6 +2,8 @@
 
 NTP Clock is a small Qt application that shows the time in a font large enough to film. It is meant for measuring video latency: put it on a screen, photograph that screen, and read the milliseconds.
 
+Source: [github.com/shalomcrown/ntpclock](https://github.com/shalomcrown/ntpclock). License: [MIT](https://github.com/shalomcrown/ntpclock/blob/main/LICENSE).
+
 The date is on the top line. Hours, minutes, and seconds fill the next line. Milliseconds are alone on the line under that, so those three digits can be as large as the window allows. The time of the last successful NTP sync is along the bottom, with the server that answered and how long ago it was.
 
 The clock shows local time, corrected by the NTP offset. Two devices in the same time zone show the same clock. The screen stays on while the app is open.
@@ -12,7 +14,11 @@ It builds for Linux (DEB), Windows (NSIS installer, cross-compiled from Linux), 
 
 ## Using it
 
+![The clock, with the timing block beside the milliseconds and the camera inset at the right](docs/images/clock.jpg)
+
 The app opens full screen. The first launch asks before any time server is contacted. **Allow** starts NTP. **Don't allow** shows the computer's own clock, and the bottom line says the time is not from NTP. Tap the clock to be asked again.
+
+**Guide**, at the top right of the clock, opens this readme in the app. The running version is on the first line of that page. **Back** or Esc returns to the clock.
 
 On Android, internet access is granted when the app is installed. If that access is later turned off, the app explains why it is needed and opens the system settings screen.
 
@@ -29,13 +35,17 @@ The bottom line is amber until a sync has succeeded, and again if a later sync f
 
 Esc leaves full screen. F11 toggles it. Ctrl+Q quits. Esc from the comparison, or from the camera question, returns to the clock instead.
 
+![The same clock in portrait](docs/images/portrait.jpg)
+
 ### Photographing another screen
 
 A camera inset sits in the bottom-right corner. The time and milliseconds move aside so the inset does not cover them. Point the inset at the other screen, then tap it or press Space.
 
+![A comparison. The photograph is on the left, this clock at the shutter is on the right, and the difference is above both](docs/images/compare.jpg)
+
 The first use asks for the camera. On Android that is the system permission screen. **Don't allow** leaves the clock up. The inset stays tappable, so the question can be asked again.
 
-The comparison puts the photograph on the left and this clock on the right, both from the moment the picture was taken. **Back** or Esc returns to the live clock. The picture is kept only for that comparison. It is not saved and it is not sent anywhere.
+The comparison puts the photograph on the left and this clock on the right, both from the moment the picture was taken. **Back** or Esc returns to the live clock. The picture is kept only for that comparison. It is not saved and it is not sent anywhere. The [privacy policy](https://github.com/shalomcrown/ntpclock/blob/main/PRIVACY.md) is the same statement in full.
 
 The right-hand clock is the time at the shutter. The digits in the photograph were already on the other screen, so this clock can read later. The difference is the other screen's delay plus the delay of this camera.
 
@@ -135,3 +145,7 @@ The default Firebase Android app is `1:309763775369:android:f3ca73101d839f988c9f
 With no `--groups` or `--testers`, the build is shared with the testers already on the project. `--groups` takes the group alias, not the display name. A missing alias makes Firebase return 404 after the upload, so the script checks the alias first. `--notes` or `--notes-file` sets the release notes. A CI login can use `FIREBASE_TOKEN` from `firebase login:ci`, or `GOOGLE_APPLICATION_CREDENTIALS` for a service account. The token is not stored in the repo.
 
 `./install-prereqs.sh --mode android` installs the Firebase CLI.
+
+### Google Play
+
+What Play Console still needs, including the target API level and the 16 KB page-size alignment, is in [docs/play-store.md](https://github.com/shalomcrown/ntpclock/blob/main/docs/play-store.md). A 512 pixel icon is at `docs/play-icon-512.png`.

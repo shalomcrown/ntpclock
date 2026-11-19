@@ -101,6 +101,66 @@ QImage boxBlur(const QImage& source) {
 }
 
 //================================================================================
+// A slanted photo of the tablet. The screen showed 12:26:48.989, so the block
+// is 989. The reader used to accept a larger all-white shape as 2730, and the
+// difference came out 1434 ms instead of about 300 ms.
+TEST(TimingBlock, ReadsASlantedPhotoAsTheMillisecondsOnTheScreen) {
+    const QImage photo(QString(NTPCLOCK_FIXTURE_DIR) + QStringLiteral("/photographed-block.png"));
+    ASSERT_FALSE(photo.isNull());
+    const LatencyReading reading = measureLatency(photo, 1296);
+    ASSERT_TRUE(reading.ok);
+    EXPECT_EQ(reading.otherValue, 989);
+    EXPECT_EQ(reading.milliseconds, 307);
+    EXPECT_EQ(latencyLabel(reading), QStringLiteral("307 ms behind\n.989 other · .296 this"));
+
+    // A steeper slant. The block reads 1258, and this clock was at 1546,
+    // which is 288 ms, the gap between the two millisecond displays.
+    const QImage steeper(QString(NTPCLOCK_FIXTURE_DIR) + QStringLiteral("/slanted-block.png"));
+    ASSERT_FALSE(steeper.isNull());
+    const LatencyReading again = measureLatency(steeper, 1546);
+    ASSERT_TRUE(again.ok);
+    EXPECT_EQ(again.otherValue, 1258);
+    EXPECT_EQ(again.milliseconds, 288);
+}
+
+//================================================================================
+// A phone camera frame is 1920 by 1920, so a block filmed from close up has
+// cells over 100 pixels wide. A false all-white box in the digits was returned
+// as 2730 because the edge search stopped at 80 pixels.
+TEST(TimingBlock, ReadsABlockWithHugeCellsInACameraFrame) {
+    QImage canvas(1920, 1920, QImage::Format_RGB32);
+    canvas.fill(QColor(20, 24, 30));
+    QPainter painter(&canvas);
+    painter.setPen(QColor(215, 205, 215));
+    QFont font = painter.font();
+    font.setPixelSize(330);
+    painter.setFont(font);
+    painter.drawText(QRect(560, 700, 1300, 500), Qt::AlignCenter, QStringLiteral("390"));
+    painter.drawText(QRect(100, 150, 1700, 500), Qt::AlignCenter, QStringLiteral("14:15:55"));
+    painter.drawImage(QPoint(40, 700), renderTimingBlock(3903, 108));
+    painter.end();
+
+    const std::optional<TimingHit> hit = findTimingBlock(boxBlur(canvas));
+    ASSERT_TRUE(hit.has_value());
+    EXPECT_EQ(hit->value, 3903);
+    EXPECT_GE(hit->bounds.width(), 500);
+}
+
+//================================================================================
+// A real 1920-wide camera frame of the tablet at 14:15:55. The block encodes
+// 3410. A coarse search of the bright frame missed that alignment, and the
+// only other hit was a bright blob, code 2730, which reported about 1400 ms.
+TEST(TimingBlock, ReadsACloseUpCameraFrameOfTheBlock) {
+    const QImage photo(QString(NTPCLOCK_FIXTURE_DIR) + QStringLiteral("/camera-frame-block.jpg"));
+    ASSERT_FALSE(photo.isNull());
+    const LatencyReading reading = measureLatency(photo, 3631);
+    ASSERT_TRUE(reading.ok);
+    EXPECT_EQ(reading.otherValue, 3410);
+    EXPECT_EQ(reading.milliseconds, 221);
+    EXPECT_EQ(latencyLabel(reading), QStringLiteral("221 ms behind\n.410 other · .631 this"));
+}
+
+//================================================================================
 TEST(TimingBlock, ReadsASoftPhotoAndRejectsAOnePixelShift) {
     const QImage sharp = renderTimingBlock(1500, 14);
     const std::optional<TimingHit> soft = findTimingBlock(boxBlur(sharp));

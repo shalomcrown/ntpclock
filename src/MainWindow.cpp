@@ -5,6 +5,7 @@
 #include "CameraPermission.h"
 #include "ClockWidget.h"
 #include "CompareView.h"
+#include "GuideView.h"
 #include "NetworkPermission.h"
 #include "NtpService.h"
 #include "ScreenAwake.h"
@@ -47,6 +48,10 @@ protected:
                              std::max(margin, height() - insetHeight - margin), insetWidth, insetHeight);
         m_inset->raise();
         m_clock->setInsetRect(m_inset->geometry());
+        if (auto* guide = findChild<QPushButton*>(QStringLiteral("guideButton"))) {
+            guide->setGeometry(std::max(8, width() - 96), 4, 88, 44);
+            guide->raise();
+        }
     }
 
 private:
@@ -77,6 +82,15 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
     m_clockPage = new ClockPage(m_clock, m_inset, this);
     m_compare = new CompareView(this);
     connect(m_compare, &CompareView::backRequested, this, &MainWindow::showClockPage);
+    m_guide = new GuideView(this);
+    connect(m_guide, &GuideView::backRequested, this, &MainWindow::showClockPage);
+    m_guideButton = new QPushButton(QStringLiteral("Guide"), m_clockPage);
+    m_guideButton->setObjectName(QStringLiteral("guideButton"));
+    m_guideButton->setFlat(true);
+    m_guideButton->setCursor(Qt::PointingHandCursor);
+    m_guideButton->setStyleSheet(QStringLiteral(
+            "QPushButton#guideButton { background: transparent; color: #dddddd; font-size: 16px; border: none; }"));
+    connect(m_guideButton, &QPushButton::clicked, this, &MainWindow::showGuide);
 
     m_permission = new QWidget(this);
     m_permission->setStyleSheet(QStringLiteral(
@@ -197,6 +211,7 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
     m_stack->addWidget(m_permission);
     m_stack->addWidget(m_cameraPermission);
     m_stack->addWidget(m_compare);
+    m_stack->addWidget(m_guide);
     m_layout = new QVBoxLayout(this);
     m_layout->setContentsMargins(0, 0, 0, 0);
     m_layout->addWidget(m_stack);
@@ -220,7 +235,8 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
     });
     auto* leaveFullscreen = new QShortcut(QKeySequence(Qt::Key_Escape), this);
     connect(leaveFullscreen, &QShortcut::activated, this, [this] {
-        if (m_stack->currentWidget() == m_compare || m_stack->currentWidget() == m_cameraPermission) {
+        if (m_stack->currentWidget() == m_compare || m_stack->currentWidget() == m_cameraPermission ||
+            m_stack->currentWidget() == m_guide) {
             showClockPage();
             return;
         }
@@ -286,6 +302,12 @@ void MainWindow::applyPermission() {
     }
     m_inset->stop();
     showPermission(current == NetworkPermission::Status::Blocked);
+}
+
+//================================================================================
+void MainWindow::showGuide() {
+    m_inset->stop();
+    m_stack->setCurrentWidget(m_guide);
 }
 
 //================================================================================
