@@ -22,7 +22,7 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ### Fixed
 
-- A tiny bright patch could be taken as the timing block, and the compare line showed only the milliseconds, so a 163 ms gap was reported as 1219 ms ahead. Patches that are small beside the picture are ignored. When the other screen's HH:mm:ss and milliseconds are clear they are read by shape, without assuming the two devices share a font, and both times are shown.
+- A tiny bright patch could be taken as the timing block, and the compare line showed only the milliseconds, so a 163 ms gap was reported as 1219 ms ahead. Patches that are small beside the picture are ignored. When the other screen's HH:mm:ss is clear it is read by shape and used for the gap, even when the milliseconds still come from the timing block, so a rollover past the four-second code can be seen and checked. The three millisecond digits are used as well when they are clear. The two devices are not assumed to share a font.
 - Dragging a finger on the guide was selecting the text. The drag now scrolls the page, and links still open.
 - Android: the bottom (portrait) or right side (landscape) no longer runs off the screen below the camera cutout.
 - The phone clock was updating only a few times a second because each camera frame was converted on the UI thread. The phone now asks for a 120 Hz refresh, and a soft photo of the timing block can still be read.

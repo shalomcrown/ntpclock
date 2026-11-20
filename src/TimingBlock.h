@@ -35,8 +35,8 @@ struct LatencyReading {
     int milliseconds = 0;
     int clockValue = -1;
     int otherValue = -1;
-    // Set when the painted HH:mm:ss.zzz on both screens was read. Empty when
-    // the gap comes from the timing block alone.
+    // Set when the painted HH:mm:ss was read, with milliseconds from the digits
+    // or from the block. Empty when the gap comes from the block alone.
     QString otherClock;
     QString thisClock;
 };

@@ -3,6 +3,8 @@
 
 #include <QDateTime>
 #include <QElapsedTimer>
+#include <QFont>
+#include <QFontDatabase>
 #include <QImage>
 #include <QPainter>
 #include <QTimeZone>
@@ -284,4 +286,35 @@ TEST(TimingBlock, ReadsThePaintedTimeInsteadOfATinyBrightPatch) {
     EXPECT_EQ(reading.milliseconds, 163);
     EXPECT_EQ(latencyLabel(reading),
               QStringLiteral("163 ms behind\n19:46:49.487 other · 19:46:49.650 this"));
+}
+
+//================================================================================
+// 14:12:57.000 against 14:13:00.000 is 3 seconds. Both seconds land on the same
+// slot of the four-second block, which reports the other screen 1 second ahead.
+// The painted HH:mm:ss is the only way to see the rollover.
+TEST(TimingBlock, UsesThePaintedSecondsWhenTheMillisecondsRollOver) {
+    const QStringList families = QFontDatabase::families();
+    if (families.contains(QStringLiteral("DejaVu Sans"), Qt::CaseInsensitive) == false) {
+        GTEST_SKIP() << "DejaVu Sans is not installed";
+    }
+    QImage image(1600, 800, QImage::Format_RGB32);
+    image.fill(Qt::black);
+    QPainter painter(&image);
+    painter.setPen(Qt::white);
+    painter.setRenderHint(QPainter::TextAntialiasing, true);
+    QFont font(QStringLiteral("DejaVu Sans"));
+    font.setPixelSize(90);
+    painter.setFont(font);
+    painter.drawText(QRect(20, 10, 1500, 180), Qt::AlignLeft | Qt::AlignVCenter, QStringLiteral("14:12:57"));
+    const QImage block = renderTimingBlock(1000, 20);
+    const QPoint blockAt(40, 360);
+    painter.drawImage(blockAt, block);
+    painter.end();
+
+    const QDateTime clock(QDate(2026, 11, 20), QTime(14, 13, 0, 0), QTimeZone::systemTimeZone());
+    const LatencyReading reading = measureLatency(image, 0, clock.toMSecsSinceEpoch());
+    ASSERT_TRUE(reading.ok);
+    EXPECT_EQ(reading.milliseconds, 3000);
+    EXPECT_EQ(latencyLabel(reading),
+              QStringLiteral("3000 ms behind\n14:12:57.000 other · 14:13:00.000 this"));
 }

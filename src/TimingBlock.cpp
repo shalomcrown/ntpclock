@@ -798,15 +798,18 @@ LatencyReading measureLatency(const QImage& otherScreen, int clockValue, qint64 
     reading.ok = true;
     reading.otherValue = hit->value;
     reading.milliseconds = latencyMs(clockValue, hit->value);
-    // The block is the fallback. A clear HH:mm:ss and three millisecond digits
-    // are the painted time, and they replace a block that sampled the wrong cells.
+    // The block repeats every four seconds, so a millisecond rollover into the
+    // next second can look like the opposite gap. The painted HH:mm:ss is the
+    // time we subtract whenever it can be read. The three millisecond digits
+    // replace the block's milliseconds when they are clear too.
     const PaintedClock painted = readPaintedClock(otherScreen, hit->bounds);
-    if (painted.timeOk == false || painted.millisOk == false || clockDisplayMs < 0) {
+    if (painted.timeOk == false || clockDisplayMs < 0) {
         return reading;
     }
+    const int otherMillis = painted.millisOk ? painted.millis : (hit->value % 1000);
     const QTimeZone zone = QTimeZone::systemTimeZone();
     const QDateTime clock = QDateTime::fromMSecsSinceEpoch(clockDisplayMs, zone);
-    const QTime otherTime(painted.hour, painted.minute, painted.second, painted.millis);
+    const QTime otherTime(painted.hour, painted.minute, painted.second, otherMillis);
     if (clock.isValid() == false || otherTime.isValid() == false) {
         return reading;
     }
@@ -827,8 +830,8 @@ LatencyReading measureLatency(const QImage& otherScreen, int clockValue, qint64 
         return reading;
     }
     reading.milliseconds = static_cast<int>(delta);
-    reading.otherValue = (painted.second % 4) * 1000 + painted.millis;
-    reading.otherClock = clockText(painted.hour, painted.minute, painted.second, painted.millis);
+    reading.otherValue = (painted.second % 4) * 1000 + otherMillis;
+    reading.otherClock = clockText(painted.hour, painted.minute, painted.second, otherMillis);
     const QTime shown = clock.time();
     reading.thisClock = clockText(shown.hour(), shown.minute(), shown.second(), shown.msec());
     return reading;

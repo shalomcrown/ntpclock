@@ -473,9 +473,9 @@ bool parseTimeLine(const QImage& gray, const std::vector<Blob>& line, PaintedClo
 
 //================================================================================
 bool readTime(const QImage& gray, const QRect& block, PaintedClock* clock) {
-    const int blockRight = block.left() + block.width();
-    const QRect above(block.left() - block.width(), block.top() - block.height() * 2,
-                      blockRight + block.width() * 4 - (block.left() - block.width()), block.height() * 2);
+    // The hours line can sit anywhere above the block. A band two blocks tall
+    // misses it on a tall screen, and then a second rollover cannot be checked.
+    const QRect above(0, 0, gray.width(), block.top());
     const QRect search = clip(gray, above);
     if (search.height() < 2) {
         return false;
